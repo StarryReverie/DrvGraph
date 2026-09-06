@@ -10,10 +10,10 @@ lib.fileset.toSource {
     (rootDir + /hs-packages/${name}/package.yaml)
 
     (lib.fileset.maybeMissing (rootDir + /hs-packages/${name}/app))
+    (lib.fileset.maybeMissing (rootDir + /hs-packages/${name}/data))
     (lib.fileset.maybeMissing (rootDir + /hs-packages/${name}/src))
     (lib.fileset.maybeMissing (rootDir + /hs-packages/${name}/test))
 
     (rootDir + /nix/lib/make-package-source.nix)
   ];
 }
-

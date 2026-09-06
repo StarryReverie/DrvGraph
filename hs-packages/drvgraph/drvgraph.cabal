@@ -15,7 +15,7 @@ flag in-nix-shell
 
 library
   exposed-modules:
-      DrvGraph
+      DrvGraph.Core.Model.Derivation
   other-modules:
       Paths_drvgraph
   hs-source-dirs:
@@ -113,6 +113,7 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      DrvGraph.Core.Model.DerivationTest
       Paths_drvgraph
   hs-source-dirs:
       test
