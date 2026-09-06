@@ -1,0 +1,8 @@
+[formatter.haskell]
+command = "fourmolu"
+options = ["--mode=inplace"]
+includes = ["*.hs", "*.lhs", "*.hsc", "*.c2hs", "*.cpphs"]
+
+[formatter.nix]
+command = "nixfmt"
+includes = ["*.nix"]

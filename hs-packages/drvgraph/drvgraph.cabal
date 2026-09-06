@@ -1,0 +1,167 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.3.
+--
+-- see: https://github.com/sol/hpack
+
+name:           drvgraph
+version:        0.1.0.0
+build-type:     Simple
+
+flag in-nix-shell
+  description: Build tools are provided by the Nix development shell.
+  manual: True
+  default: False
+
+library
+  exposed-modules:
+      DrvGraph
+  other-modules:
+      Paths_drvgraph
+  hs-source-dirs:
+      src
+  default-extensions:
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      InstanceSigs
+      MultiParamTypeClasses
+      FunctionalDependencies
+      LambdaCase
+      MultiWayIf
+      NamedFieldPuns
+      TupleSections
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DerivingStrategies
+      GeneralizedNewtypeDeriving
+      StandaloneDeriving
+      BangPatterns
+      KindSignatures
+      TypeOperators
+      OverloadedStrings
+      ScopedTypeVariables
+      TypeApplications
+      ConstraintKinds
+      ApplicativeDo
+      DefaultSignatures
+      PatternSynonyms
+      TemplateHaskell
+  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
+  build-depends:
+      base
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    , megaparsec
+    , text
+  default-language: GHC2024
+
+executable drvgraph
+  main-is: Main.hs
+  other-modules:
+      Paths_drvgraph
+  hs-source-dirs:
+      app
+  default-extensions:
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      InstanceSigs
+      MultiParamTypeClasses
+      FunctionalDependencies
+      LambdaCase
+      MultiWayIf
+      NamedFieldPuns
+      TupleSections
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DerivingStrategies
+      GeneralizedNewtypeDeriving
+      StandaloneDeriving
+      BangPatterns
+      KindSignatures
+      TypeOperators
+      OverloadedStrings
+      ScopedTypeVariables
+      TypeApplications
+      ConstraintKinds
+      ApplicativeDo
+      DefaultSignatures
+      PatternSynonyms
+      TemplateHaskell
+  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
+  build-depends:
+      base
+    , bytestring
+    , containers
+    , directory
+    , drvgraph
+    , filepath
+    , megaparsec
+    , text
+  default-language: GHC2024
+
+test-suite test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_drvgraph
+  hs-source-dirs:
+      test
+  default-extensions:
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      InstanceSigs
+      MultiParamTypeClasses
+      FunctionalDependencies
+      LambdaCase
+      MultiWayIf
+      NamedFieldPuns
+      TupleSections
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DerivingStrategies
+      GeneralizedNewtypeDeriving
+      StandaloneDeriving
+      BangPatterns
+      KindSignatures
+      TypeOperators
+      OverloadedStrings
+      ScopedTypeVariables
+      TypeApplications
+      ConstraintKinds
+      ApplicativeDo
+      DefaultSignatures
+      PatternSynonyms
+      TemplateHaskell
+  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -Wno-incomplete-uni-patterns
+  build-depends:
+      base
+    , bytestring
+    , containers
+    , directory
+    , drvgraph
+    , file-embed
+    , filepath
+    , hedgehog
+    , megaparsec
+    , tasty
+    , tasty-hedgehog
+    , tasty-hunit
+    , text
+  default-language: GHC2024
+  if !flag(in-nix-shell)
+    build-tool-depends:
+        tasty-discover:tasty-discover

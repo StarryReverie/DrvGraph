@@ -1,0 +1,42 @@
+_common: !include ../../package.common.yaml
+<<: *common
+<<: *flags
+
+name: drvgraph
+version: 0.1.0.0
+
+dependencies:
+  - base
+  - bytestring
+  - containers
+  - directory
+  - filepath
+  - megaparsec
+  - text
+
+library:
+  source-dirs: src
+
+executables:
+  drvgraph:
+    source-dirs: app
+    main: Main.hs
+    dependencies:
+      - drvgraph
+
+tests:
+  test:
+    source-dirs: test
+    main: Spec.hs
+    dependencies:
+      - drvgraph
+      - file-embed
+      - hedgehog
+      - tasty
+      - tasty-hedgehog
+      - tasty-hunit
+    ghc-options: *test-ghc-options
+    when:
+      - condition: "!flag(in-nix-shell)"
+        build-tools:
+          - tasty-discover:tasty-discover
