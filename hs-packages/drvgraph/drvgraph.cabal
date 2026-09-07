@@ -15,6 +15,7 @@ flag in-nix-shell
 
 library
   exposed-modules:
+      DrvGraph.Core.Error
       DrvGraph.Core.Model.Derivation
   other-modules:
       Paths_drvgraph
@@ -58,7 +59,9 @@ library
     , directory
     , filepath
     , megaparsec
+    , mtl
     , text
+    , transformers
   default-language: GHC2024
 
 executable drvgraph
@@ -106,13 +109,16 @@ executable drvgraph
     , drvgraph
     , filepath
     , megaparsec
+    , mtl
     , text
+    , transformers
   default-language: GHC2024
 
 test-suite test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      DrvGraph.Core.ErrorTest
       DrvGraph.Core.Model.DerivationTest
       Paths_drvgraph
   hs-source-dirs:
@@ -158,10 +164,12 @@ test-suite test
     , filepath
     , hedgehog
     , megaparsec
+    , mtl
     , tasty
     , tasty-hedgehog
     , tasty-hunit
     , text
+    , transformers
   default-language: GHC2024
   if !flag(in-nix-shell)
     build-tool-depends:

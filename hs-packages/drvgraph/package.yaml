@@ -12,7 +12,9 @@ dependencies:
   - directory
   - filepath
   - megaparsec
+  - mtl
   - text
+  - transformers
 
 library:
   source-dirs: src
