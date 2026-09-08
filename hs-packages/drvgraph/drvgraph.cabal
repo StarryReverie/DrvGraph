@@ -19,6 +19,7 @@ library
       DrvGraph.Core.Model.Derivation
       DrvGraph.Core.Model.DerivingPath
       DrvGraph.Core.Model.Nix32Hash
+      DrvGraph.Core.Model.StoreObjectPath
   other-modules:
       Paths_drvgraph
   hs-source-dirs:
@@ -124,6 +125,7 @@ test-suite test
       DrvGraph.Core.Model.DerivationTest
       DrvGraph.Core.Model.DerivingPathTest
       DrvGraph.Core.Model.Nix32HashTest
+      DrvGraph.Core.Model.StoreObjectPathTest
       Paths_drvgraph
   hs-source-dirs:
       test
