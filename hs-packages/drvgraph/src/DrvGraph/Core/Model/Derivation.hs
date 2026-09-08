@@ -19,11 +19,13 @@ import Text.Megaparsec.Char qualified as MPC
 
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
+import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
+import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
 -- | The Nix derivation's data structure.
 data Derivation = Derivation
     { drvInputDrvs :: Map DerivingPath (Set Text)
-    , drvInputSrcs :: Set FilePath
+    , drvInputSrcs :: Set StoreObjectPath
     , drvOutputs :: Map Text DerivationOutput
     , drvPlatform :: Text
     , drvBuilder :: FilePath
@@ -34,7 +36,7 @@ data Derivation = Derivation
 
 -- | The output field of a derivation.
 data DerivationOutput = DerivationOutput
-    { outPath :: FilePath
+    { outPath :: StoreObjectPath
     , outHash :: Maybe OutputHash
     }
     deriving (Eq, Show)
@@ -54,19 +56,19 @@ parse = parseDerivation
 
 parseDerivation :: Parser Derivation
 parseDerivation = MP.between (MPC.string "Derive(") (MPC.char ')') $ do
-    drvOutputs <- parseManyDerivationOutputs
+    drvOutputs <- parseManyDerivationOutputs <?> "derivation outputs"
     _ <- MPC.char ','
-    drvInputDrvs <- parseManyInputDrvs
+    drvInputDrvs <- parseManyInputDrvs <?> "derivation input derivations"
     _ <- MPC.char ','
-    drvInputSrcs <- makeSetParser parseFilePath
+    drvInputSrcs <- makeSetParser parseStoreObjectPath <?> "derivation input sources"
     _ <- MPC.char ','
-    drvPlatform <- parseString
+    drvPlatform <- parseString <?> "derivation platform"
     _ <- MPC.char ','
-    drvBuilder <- parseFilePath
+    drvBuilder <- parseFilePath <?> "derivation builder"
     _ <- MPC.char ','
-    drvArgs <- makeListParser parseString
+    drvArgs <- makeListParser parseString <?> "derivation arguments"
     _ <- MPC.char ','
-    drvEnvs <- makeMapParser (makePairParaser parseString parseString)
+    drvEnvs <- makeMapParser (makePairParaser parseString parseString) <?> "derivation environments"
     pure Derivation{drvInputDrvs, drvInputSrcs, drvOutputs, drvPlatform, drvBuilder, drvArgs, drvEnvs}
 
 parseManyDerivationOutputs :: Parser (Map Text DerivationOutput)
@@ -76,7 +78,7 @@ parseDerivationOutput :: Parser (Text, DerivationOutput)
 parseDerivationOutput = MP.between (MPC.char '(') (MPC.char ')') $ do
     outName <- parseString <?> "output name"
     _ <- MPC.char ','
-    outPath <- parseFilePath <?> "output path"
+    outPath <- parseStoreObjectPath <?> "output path"
     _ <- MPC.char ','
     outHash <- do
         hashAlgo <- parseString <?> "output hash algorithm"
@@ -99,6 +101,13 @@ parseDerivingPath = do
     filePath <- FP.takeFileName <$> parseFilePath
     case DerivingPath.fromText . Text.pack $ filePath of
         Left _ -> fail "deriving path is invalid"
+        Right dp -> pure dp
+
+parseStoreObjectPath :: Parser StoreObjectPath
+parseStoreObjectPath = do
+    filePath <- FP.takeFileName <$> parseFilePath
+    case StoreObjectPath.fromText . Text.pack $ filePath of
+        Left _ -> fail "store object path is invalid"
         Right dp -> pure dp
 
 makeListParser :: Parser a -> Parser [a]
