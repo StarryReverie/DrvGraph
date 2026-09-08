@@ -17,6 +17,7 @@ library
   exposed-modules:
       DrvGraph.Core.Error
       DrvGraph.Core.Model.Derivation
+      DrvGraph.Core.Model.DerivingPath
       DrvGraph.Core.Model.Nix32Hash
   other-modules:
       Paths_drvgraph
@@ -121,6 +122,7 @@ test-suite test
   other-modules:
       DrvGraph.Core.ErrorTest
       DrvGraph.Core.Model.DerivationTest
+      DrvGraph.Core.Model.DerivingPathTest
       DrvGraph.Core.Model.Nix32HashTest
       Paths_drvgraph
   hs-source-dirs:
