@@ -16,6 +16,7 @@ flag in-nix-shell
 library
   exposed-modules:
       DrvGraph.Core.Error
+      DrvGraph.Core.Model.DepGraph
       DrvGraph.Core.Model.Derivation
       DrvGraph.Core.Model.DerivingPath
       DrvGraph.Core.Model.Nix32Hash
