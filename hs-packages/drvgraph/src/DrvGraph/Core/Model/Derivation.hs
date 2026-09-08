@@ -12,13 +12,17 @@ import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
+import System.FilePath qualified as FP
 import Text.Megaparsec (Parsec, (<?>))
 import Text.Megaparsec qualified as MP
 import Text.Megaparsec.Char qualified as MPC
 
+import DrvGraph.Core.Model.DerivingPath (DerivingPath)
+import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
+
 -- | The Nix derivation's data structure.
 data Derivation = Derivation
-    { drvInputDrvs :: Map FilePath (Set Text)
+    { drvInputDrvs :: Map DerivingPath (Set Text)
     , drvInputSrcs :: Set FilePath
     , drvOutputs :: Map Text DerivationOutput
     , drvPlatform :: Text
@@ -84,11 +88,18 @@ parseDerivationOutput = MP.between (MPC.char '(') (MPC.char ')') $ do
     let out = DerivationOutput{outPath, outHash}
     pure (outName, out)
 
-parseManyInputDrvs :: Parser (Map FilePath (Set Text))
+parseManyInputDrvs :: Parser (Map DerivingPath (Set Text))
 parseManyInputDrvs = makeMapParser parseInputDrv
 
-parseInputDrv :: Parser (FilePath, Set Text)
-parseInputDrv = makePairParaser parseFilePath (makeSetParser parseString)
+parseInputDrv :: Parser (DerivingPath, Set Text)
+parseInputDrv = makePairParaser parseDerivingPath (makeSetParser parseString)
+
+parseDerivingPath :: Parser DerivingPath
+parseDerivingPath = do
+    filePath <- FP.takeFileName <$> parseFilePath
+    case DerivingPath.fromText . Text.pack $ filePath of
+        Left _ -> fail "deriving path is invalid"
+        Right dp -> pure dp
 
 makeListParser :: Parser a -> Parser [a]
 makeListParser p = MP.between (MPC.char '[') (MPC.char ']') (p `MP.sepBy` MPC.char ',')

@@ -12,6 +12,7 @@ import Text.Megaparsec as MP
 
 import DrvGraph.Core.Model.Derivation (Derivation (..), DerivationOutput (..), OutputHash (..))
 import DrvGraph.Core.Model.Derivation qualified as Derivation
+import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 
 unit_parseHello :: IO ()
 unit_parseHello = do
@@ -23,10 +24,10 @@ unit_parseHello = do
             Derivation
                 { drvInputDrvs =
                     Map.fromList
-                        [ ("/nix/store/90yyxc3lkyxd23v52p9kh17p2j9r107c-stdenv-linux.drv", Set.fromList ["out"])
-                        , ("/nix/store/a15s4f9z63cg8pg6w0gy9rf06jd3ra67-version-check-hook.drv", Set.fromList ["out"])
-                        , ("/nix/store/fmyr3q5fikw8g50g1xf2vgs10hisxck9-hello-2.12.3.tar.gz.drv", Set.fromList ["out"])
-                        , ("/nix/store/hplnhqsmnpr4gv35yf4cxvbalki3k308-bash-5.3p15.drv", Set.fromList ["out"])
+                        [ (DerivingPath.uncheckedText "90yyxc3lkyxd23v52p9kh17p2j9r107c-stdenv-linux.drv", Set.fromList ["out"])
+                        , (DerivingPath.uncheckedText "a15s4f9z63cg8pg6w0gy9rf06jd3ra67-version-check-hook.drv", Set.fromList ["out"])
+                        , (DerivingPath.uncheckedText "fmyr3q5fikw8g50g1xf2vgs10hisxck9-hello-2.12.3.tar.gz.drv", Set.fromList ["out"])
+                        , (DerivingPath.uncheckedText "hplnhqsmnpr4gv35yf4cxvbalki3k308-bash-5.3p15.drv", Set.fromList ["out"])
                         ]
                 , drvInputSrcs =
                     Set.fromList
@@ -68,10 +69,10 @@ unit_parseHelloSource = do
             Derivation
                 { drvInputDrvs =
                     Map.fromList
-                        [ ("/nix/store/hplnhqsmnpr4gv35yf4cxvbalki3k308-bash-5.3p15.drv", Set.fromList ["out"])
-                        , ("/nix/store/iifp4fbhbyrc7zvy4lrxqzq6mv780mw7-curl-8.21.0.drv", Set.fromList ["dev"])
-                        , ("/nix/store/kv2m32vy9pnbp4kgkzfbclsbyam14dvg-stdenv-linux-no-cc.drv", Set.fromList ["out"])
-                        , ("/nix/store/yn8scfhr5k35i4wyn5rbf58qyhp55zlh-mirrors-list.drv", Set.fromList ["out"])
+                        [ (DerivingPath.uncheckedText "hplnhqsmnpr4gv35yf4cxvbalki3k308-bash-5.3p15.drv", Set.fromList ["out"])
+                        , (DerivingPath.uncheckedText "iifp4fbhbyrc7zvy4lrxqzq6mv780mw7-curl-8.21.0.drv", Set.fromList ["dev"])
+                        , (DerivingPath.uncheckedText "kv2m32vy9pnbp4kgkzfbclsbyam14dvg-stdenv-linux-no-cc.drv", Set.fromList ["out"])
+                        , (DerivingPath.uncheckedText "yn8scfhr5k35i4wyn5rbf58qyhp55zlh-mirrors-list.drv", Set.fromList ["out"])
                         ]
                 , drvInputSrcs =
                     Set.fromList
