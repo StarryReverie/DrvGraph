@@ -15,6 +15,8 @@ flag in-nix-shell
 
 library
   exposed-modules:
+      DrvGraph.Core.Capability.CapDerivation
+      DrvGraph.Core.Capability.CapStoreObject
       DrvGraph.Core.Error
       DrvGraph.Core.Model.DepGraph
       DrvGraph.Core.Model.Derivation
