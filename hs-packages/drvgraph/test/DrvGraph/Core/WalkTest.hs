@@ -126,11 +126,11 @@ unit_walkLocalExisted = do
         @?= DepGraph
             { dgObjNodes =
                 Map.fromList
-                    [ (objPathA, ObjExisted{stObjPath = objPathA})
+                    [ (objPathA, ObjExisted)
                     ]
             , dgDrvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvPath = drvPathA, drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.empty})
                     ]
             }
 
@@ -152,13 +152,13 @@ unit_walkUnsyncedThenLocalLeaf = do
         @?= DepGraph
             { dgObjNodes =
                 Map.fromList
-                    [ (objPathA, ObjUnsynced{stObjPath = objPathA, stDrvPath = drvPathA, stRefPaths = Set.fromList [objPathB]})
-                    , (objPathB, ObjExisted{stObjPath = objPathB})
+                    [ (objPathA, ObjUnsynced{stDrvPath = drvPathA, stRefPaths = Set.fromList [objPathB]})
+                    , (objPathB, ObjExisted)
                     ]
             , dgDrvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvPath = drvPathA, drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
-                    , (drvPathB, DrvNode{drvPath = drvPathB, drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
+                    , (drvPathB, DrvNode{drvInputObjPaths = Map.empty})
                     ]
             }
 
@@ -177,13 +177,13 @@ unit_walkUnbuiltFallback = do
         @?= DepGraph
             { dgObjNodes =
                 Map.fromList
-                    [ (objPathA, ObjUnbuilt{stObjPath = objPathA, stDrvPath = drvPathA})
-                    , (objPathB, ObjUnbuilt{stObjPath = objPathB, stDrvPath = drvPathB})
+                    [ (objPathA, ObjUnbuilt{stDrvPath = drvPathA})
+                    , (objPathB, ObjUnbuilt{stDrvPath = drvPathB})
                     ]
             , dgDrvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvPath = drvPathA, drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
-                    , (drvPathB, DrvNode{drvPath = drvPathB, drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
+                    , (drvPathB, DrvNode{drvInputObjPaths = Map.empty})
                     ]
             }
 
@@ -208,17 +208,17 @@ unit_walkDiamondVisitsOnce = do
         @?= DepGraph
             { dgObjNodes =
                 Map.fromList
-                    [ (objPathA, ObjUnsynced{stObjPath = objPathA, stDrvPath = drvPathA, stRefPaths = Set.fromList [objPathB, objPathC]})
-                    , (objPathB, ObjUnsynced{stObjPath = objPathB, stDrvPath = drvPathB, stRefPaths = Set.fromList [objPathD]})
-                    , (objPathC, ObjUnsynced{stObjPath = objPathC, stDrvPath = drvPathC, stRefPaths = Set.fromList [objPathD]})
-                    , (objPathD, ObjUnbuilt{stObjPath = objPathD, stDrvPath = drvPathD})
+                    [ (objPathA, ObjUnsynced{stDrvPath = drvPathA, stRefPaths = Set.fromList [objPathB, objPathC]})
+                    , (objPathB, ObjUnsynced{stDrvPath = drvPathB, stRefPaths = Set.fromList [objPathD]})
+                    , (objPathC, ObjUnsynced{stDrvPath = drvPathC, stRefPaths = Set.fromList [objPathD]})
+                    , (objPathD, ObjUnbuilt{stDrvPath = drvPathD})
                     ]
             , dgDrvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvPath = drvPathA, drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out")), (objPathC, (drvPathC, "out"))]})
-                    , (drvPathB, DrvNode{drvPath = drvPathB, drvInputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
-                    , (drvPathC, DrvNode{drvPath = drvPathC, drvInputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
-                    , (drvPathD, DrvNode{drvPath = drvPathD, drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out")), (objPathC, (drvPathC, "out"))]})
+                    , (drvPathB, DrvNode{drvInputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
+                    , (drvPathC, DrvNode{drvInputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
+                    , (drvPathD, DrvNode{drvInputObjPaths = Map.empty})
                     ]
             }
 

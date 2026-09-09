@@ -25,6 +25,8 @@ import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
+-- | Traverse the Nix store from a derivation's output, which coresponds to a
+-- store object path uniquely.
 walk
     :: (CapDerivation m, CapStoreObject m)
     => FilePath -> DerivingPath -> Text -> AppExceptT m DepGraph
@@ -53,8 +55,8 @@ walkImpl storeDir drvPath outName = do
         Just drvNode -> pure drvNode
         Nothing -> do
             drvInputObjPaths <- resolveDrvInputObjPaths storeDir drv
-            let drvNode = DrvNode{drvPath, drvInputObjPaths}
-            modify $ withDepGraph $ DepGraph.insertDrvNode drvNode
+            let drvNode = DrvNode{drvInputObjPaths}
+            modify $ withDepGraph $ DepGraph.insertDrvNode drvPath drvNode
             pure drvNode
 
     -- Get the @StoreObjectPath@ of @drvPath@^@outName@.
@@ -72,31 +74,34 @@ walkImpl storeDir drvPath outName = do
     maybeVisitedObj <- DepGraph.lookupObjNode stObjPath . wsDepGraph <$> get
     case maybeVisitedObj of
         Just _ -> pure ()
-        Nothing -> resolveObjNodeAndRecurse storeDir stObjPath drvNode
+        Nothing -> resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode
 
 resolveObjNodeAndRecurse
     :: (CapDerivation m, CapStoreObject m)
-    => FilePath -> StoreObjectPath -> DrvNode -> CurrentT m ()
-resolveObjNodeAndRecurse storeDir stObjPath drvNode = do
+    => FilePath -> DerivingPath -> StoreObjectPath -> DrvNode -> CurrentT m ()
+resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode = do
     isSynced <- do
         let errMsg = "could not query local store object path" <> StoreObjectPath.toText stObjPath
         lift $ withErrContext errMsg $ CapStoreObject.queryLocalStoreObject storeDir stObjPath
 
     if isSynced
+        -- Stop at already existed store object path, whose its closure
+        -- exists as well.
         then do
-            let objNode = ObjExisted{stObjPath}
-            modify $ withDepGraph $ DepGraph.insertObjNode objNode
+            modify $ withDepGraph $ DepGraph.insertObjNode stObjPath ObjExisted
         else do
             maybeNarInfo <- do
                 let errMsg = "could not query remote store object path" <> StoreObjectPath.toText stObjPath
                 lift $ withErrContext errMsg $ CapStoreObject.queryRemoteStoreObject stObjPath
 
+            -- Get the list of dependent input derivation outputs to recurse into.
             let DrvNode{drvInputObjPaths} = drvNode
             inputDrvs <- case maybeNarInfo of
                 Just NarInfo{narInfoRefs = stRefPaths} -> do
-                    let DrvNode{drvPath = stDrvPath} = drvNode
-                    let objNode = ObjUnsynced{stObjPath, stDrvPath, stRefPaths}
-                    modify $ withDepGraph $ DepGraph.insertObjNode objNode
+                    -- Store object in remote binary caches only needs runtime
+                    -- dependencies included in its narinfo's @References@ line.
+                    let objNode = ObjUnsynced{stDrvPath = drvPath, stRefPaths}
+                    modify $ withDepGraph $ DepGraph.insertObjNode stObjPath objNode
 
                     forM (Set.toList stRefPaths) $ \stRefPath ->
                         case Map.lookup stRefPath drvInputObjPaths of
@@ -106,12 +111,14 @@ resolveObjNodeAndRecurse storeDir stObjPath drvNode = do
                                 let errMsg = "deriver for store object " <> sop <> " doesn't exist"
                                 throwError $ appError errMsg
                 Nothing -> do
-                    let DrvNode{drvPath = stDrvPath} = drvNode
-                    let objNode = ObjUnbuilt{stObjPath, stDrvPath}
-                    modify $ withDepGraph $ DepGraph.insertObjNode objNode
+                    -- Otherwise Nix needs to build this derivation locally, so
+                    -- all input derivation outputs are required.
+                    let objNode = ObjUnbuilt{stDrvPath = drvPath}
+                    modify $ withDepGraph $ DepGraph.insertObjNode stObjPath objNode
 
                     pure $ foldr (:) [] drvInputObjPaths
 
+            -- Recurse into dependencies.
             forM_ inputDrvs $ \(inputDrv, inputDrvOutName) -> do
                 walkImpl storeDir inputDrv inputDrvOutName
 
