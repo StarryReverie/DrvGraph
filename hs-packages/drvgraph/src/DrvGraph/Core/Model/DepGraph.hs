@@ -9,8 +9,8 @@ module DrvGraph.Core.Model.DepGraph
     , lookupDrvNode
     ) where
 
-import Data.Map (Map)
-import Data.Map qualified as Map
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Set (Set)
 import Data.Text (Text)
 

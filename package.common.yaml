@@ -20,6 +20,7 @@
     - GeneralizedNewtypeDeriving
     - StandaloneDeriving
     - BangPatterns
+    - StrictData
     - KindSignatures
     - TypeOperators
     - OverloadedStrings

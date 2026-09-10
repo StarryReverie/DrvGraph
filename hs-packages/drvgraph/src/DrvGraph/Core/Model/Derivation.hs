@@ -5,8 +5,8 @@ module DrvGraph.Core.Model.Derivation
     , parse
     ) where
 
-import Data.Map (Map)
-import Data.Map qualified as Map
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)

@@ -11,8 +11,8 @@ module DrvGraph.Core.WalkTest
 import Control.Monad.Except (runExceptT, throwError)
 import Control.Monad.Reader (Reader, asks, runReader)
 import Data.Either (isLeft)
-import Data.Map (Map)
-import Data.Map qualified as Map
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)

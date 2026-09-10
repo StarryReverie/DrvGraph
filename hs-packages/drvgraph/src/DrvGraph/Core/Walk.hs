@@ -6,8 +6,8 @@ import Control.Monad (forM, forM_)
 import Control.Monad.Except (throwError)
 import Control.Monad.State.Strict (StateT (..), execStateT, get, modify)
 import Control.Monad.Trans (lift)
-import Data.Map (Map)
-import Data.Map qualified as Map
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text (Text)
 
@@ -116,7 +116,7 @@ resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode = do
                     let objNode = ObjUnbuilt{stDrvPath = drvPath}
                     modify $ withDepGraph $ DepGraph.insertObjNode stObjPath objNode
 
-                    pure $ foldr (:) [] drvInputObjPaths
+                    pure $ Map.elems drvInputObjPaths
 
             -- Recurse into dependencies.
             forM_ inputDrvs $ \(inputDrv, inputDrvOutName) -> do
