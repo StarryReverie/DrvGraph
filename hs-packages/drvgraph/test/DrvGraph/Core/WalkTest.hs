@@ -67,7 +67,7 @@ instance CapStoreObject (Reader TestEnv) where
         remoteNars <- asks (^. #remoteNars)
         pure $ Map.lookup stObjPath remoteNars
 
-runWalk :: TestEnv -> DerivingPath -> Text -> AppEither DepGraph
+runWalk :: TestEnv -> DerivingPath -> Text -> AppEither (DepGraph, StoreObjectPath)
 runWalk env drvPath outName =
     runReader (runExceptT (walk "/nix/store" drvPath outName)) env
 
@@ -124,9 +124,9 @@ unit_walkLocalExisted = do
                 , localObjects = Set.singleton objPathA
                 }
 
-    let Right actual = runWalk env drvPathA "out"
+    let Right (depGraph, objPath) = runWalk env drvPathA "out"
 
-    actual
+    depGraph
         @?= DepGraph
             { objNodes =
                 Map.fromList
@@ -137,6 +137,7 @@ unit_walkLocalExisted = do
                     [ (drvPathA, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
+    objPath @?= objPathA
 
 unit_walkUnsyncedThenLocalLeaf :: IO ()
 unit_walkUnsyncedThenLocalLeaf = do
@@ -150,9 +151,9 @@ unit_walkUnsyncedThenLocalLeaf = do
                 , remoteNars = Map.fromList [(objPathA, narA)]
                 }
 
-    let Right actual = runWalk env drvPathA "out"
+    let Right (depGraph, objPath) = runWalk env drvPathA "out"
 
-    actual
+    depGraph
         @?= DepGraph
             { objNodes =
                 Map.fromList
@@ -165,6 +166,7 @@ unit_walkUnsyncedThenLocalLeaf = do
                     , (drvPathB, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
+    objPath @?= objPathA
 
 unit_walkUnbuiltFallback :: IO ()
 unit_walkUnbuiltFallback = do
@@ -175,9 +177,9 @@ unit_walkUnbuiltFallback = do
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
                 }
 
-    let Right actual = runWalk env drvPathA "out"
+    let Right (depGraph, objPath) = runWalk env drvPathA "out"
 
-    actual
+    depGraph
         @?= DepGraph
             { objNodes =
                 Map.fromList
@@ -190,6 +192,7 @@ unit_walkUnbuiltFallback = do
                     , (drvPathB, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
+    objPath @?= objPathA
 
 unit_walkDiamondVisitsOnce :: IO ()
 unit_walkDiamondVisitsOnce = do
@@ -206,9 +209,9 @@ unit_walkDiamondVisitsOnce = do
                 , remoteNars = Map.fromList [(objPathA, narA), (objPathB, narB), (objPathC, narC)]
                 }
 
-    let Right actual = runWalk env drvPathA "out"
+    let Right (depGraph, objPath) = runWalk env drvPathA "out"
 
-    actual
+    depGraph
         @?= DepGraph
             { objNodes =
                 Map.fromList
@@ -225,6 +228,7 @@ unit_walkDiamondVisitsOnce = do
                     , (drvPathD, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
+    objPath @?= objPathA
 
 unit_walkMissingOutputNameError :: IO ()
 unit_walkMissingOutputNameError = do

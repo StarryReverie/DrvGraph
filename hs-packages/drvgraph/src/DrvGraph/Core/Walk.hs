@@ -4,7 +4,7 @@ module DrvGraph.Core.Walk
 
 import Control.Monad (forM, forM_)
 import Control.Monad.Except (throwError)
-import Control.Monad.State.Strict (StateT (..), execStateT, gets, modify)
+import Control.Monad.State.Strict (StateT (..), gets, modify)
 import Control.Monad.Trans (lift)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -34,20 +34,21 @@ data WalkState = WalkState
 makeFieldLabelsNoPrefix ''WalkState
 
 -- | Traverse the Nix store from a derivation's output, which coresponds to a
--- store object path uniquely.
+-- store object path uniquely. Returns the dependency graph and the store object
+-- path of the given @(DerivingPath, Text)@ pair.
 walk
     :: (CapDerivation m, CapStoreObject m)
-    => FilePath -> DerivingPath -> Text -> AppExceptT m DepGraph
+    => FilePath -> DerivingPath -> Text -> AppExceptT m (DepGraph, StoreObjectPath)
 walk storeDir drvPath outName = do
     let initial = WalkState{loadedDrvCache = Map.empty, depGraph = DepGraph.empty}
-    WalkState{depGraph} <- execStateT (walkImpl storeDir drvPath outName) initial
-    pure depGraph
+    (objPath, WalkState{depGraph}) <- runStateT (walkImpl storeDir drvPath outName) initial
+    pure (depGraph, objPath)
 
 type CurrentT m = StateT WalkState (AppExceptT m)
 
 walkImpl
     :: (CapDerivation m, CapStoreObject m)
-    => FilePath -> DerivingPath -> Text -> CurrentT m ()
+    => FilePath -> DerivingPath -> Text -> CurrentT m StoreObjectPath
 walkImpl storeDir drvPath outName = do
     -- Get the @Derivation@ at @drvPath@.
     drv <- ensureDerivation drvPath (CapDerivation.loadDerivation storeDir)
@@ -77,6 +78,8 @@ walkImpl storeDir drvPath outName = do
     case maybeVisitedObj of
         Just _ -> pure ()
         Nothing -> resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode
+
+    pure stObjPath
 
 resolveObjNodeAndRecurse
     :: (CapDerivation m, CapStoreObject m)
