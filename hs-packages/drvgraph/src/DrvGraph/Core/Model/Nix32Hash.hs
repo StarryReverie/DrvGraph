@@ -18,7 +18,7 @@ import Text.Megaparsec qualified as MP
 import DrvGraph.Core.Error (AppEither, appError, unwrapRight, withErrContext)
 
 -- | Nix's variant of the Base32 encoding, used for store path digest.
-newtype Nix32Hash = Nix32HashInternal {unHash :: Text}
+newtype Nix32Hash = Nix32HashInternal {hash :: Text}
     deriving (Eq, Ord, Show)
 
 pattern Nix32Hash :: Text -> Nix32Hash
@@ -27,7 +27,7 @@ pattern Nix32Hash hash <- Nix32HashInternal hash
 
 -- | Unwrap the inner hash value.
 get :: Nix32Hash -> Text
-get = unHash
+get (Nix32HashInternal hash) = hash
 
 type Parser = Parsec Void Text
 

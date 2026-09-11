@@ -21,9 +21,9 @@ import DrvGraph.Core.Model.Nix32HashTest qualified as Nix32HashTest
 
 genDerivingPath :: (GenBase m ~ Identity, MonadGen m) => m DerivingPath
 genDerivingPath = do
-    dpHash <- Nix32HashTest.genNix32Hash
-    dpName <- Gen.text (Range.linear 0 50) (Gen.choice [Gen.alphaNum, pure '-', pure '_'])
-    pure $ DerivingPath{dpHash, dpName}
+    hash <- Nix32HashTest.genNix32Hash
+    name <- Gen.text (Range.linear 0 50) (Gen.choice [Gen.alphaNum, pure '-', pure '_'])
+    pure $ DerivingPath{hash, name}
 
 genDerivingPathText :: (GenBase m ~ Identity, MonadGen m) => m Text
 genDerivingPathText = Text.pack . DerivingPath.toFilePath <$> genDerivingPath
@@ -33,8 +33,8 @@ unit_fromText = do
     let Right actual = DerivingPath.fromText "g1w7hy3qg1w7hy3qg1w7hy3qg1w7hy3q-foo.drv"
     let expected =
             DerivingPath
-                { dpHash = Nix32Hash.uncheckedText "g1w7hy3qg1w7hy3qg1w7hy3qg1w7hy3q"
-                , dpName = "foo"
+                { hash = Nix32Hash.uncheckedText "g1w7hy3qg1w7hy3qg1w7hy3qg1w7hy3q"
+                , name = "foo"
                 }
     actual @?= expected
 

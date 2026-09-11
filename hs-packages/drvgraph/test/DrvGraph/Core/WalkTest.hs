@@ -17,6 +17,8 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Optics ((^.))
+import Optics.TH (makeFieldLabelsNoPrefix)
 import Test.Tasty.HUnit (assertBool, (@?=))
 
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation (loadDerivation))
@@ -31,23 +33,25 @@ import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 import DrvGraph.Core.Walk (walk)
 
 data TestEnv = TestEnv
-    { envDerivations :: Map DerivingPath Derivation
-    , envLocalObjects :: Set StoreObjectPath
-    , envRemoteNars :: Map StoreObjectPath NarInfo
+    { derivations :: Map DerivingPath Derivation
+    , localObjects :: Set StoreObjectPath
+    , remoteNars :: Map StoreObjectPath NarInfo
     }
+
+makeFieldLabelsNoPrefix ''TestEnv
 
 defaultEnv :: TestEnv
 defaultEnv =
     TestEnv
-        { envDerivations = Map.empty
-        , envLocalObjects = Set.empty
-        , envRemoteNars = Map.empty
+        { derivations = Map.empty
+        , localObjects = Set.empty
+        , remoteNars = Map.empty
         }
 
 instance CapDerivation (Reader TestEnv) where
     loadDerivation :: FilePath -> DerivingPath -> AppExceptT (Reader TestEnv) Derivation
     loadDerivation _storeDir drvPath = do
-        derivations <- asks envDerivations
+        derivations <- asks (^. #derivations)
         case Map.lookup drvPath derivations of
             Just drv -> pure drv
             Nothing -> throwError $ appError "derivation not found in test environment"
@@ -55,12 +59,12 @@ instance CapDerivation (Reader TestEnv) where
 instance CapStoreObject (Reader TestEnv) where
     queryLocalStoreObject :: FilePath -> StoreObjectPath -> AppExceptT (Reader TestEnv) Bool
     queryLocalStoreObject _storeDir stObjPath = do
-        localObjects <- asks envLocalObjects
+        localObjects <- asks (^. #localObjects)
         pure $ Set.member stObjPath localObjects
 
     queryRemoteStoreObject :: StoreObjectPath -> AppExceptT (Reader TestEnv) (Maybe NarInfo)
     queryRemoteStoreObject stObjPath = do
-        remoteNars <- asks envRemoteNars
+        remoteNars <- asks (^. #remoteNars)
         pure $ Map.lookup stObjPath remoteNars
 
 runWalk :: TestEnv -> DerivingPath -> Text -> AppEither DepGraph
@@ -98,39 +102,39 @@ mkDerivation
     :: Map DerivingPath (Set Text)
     -> Map Text StoreObjectPath
     -> Derivation
-mkDerivation drvInputDrvs outputPaths =
+mkDerivation inputDrvs outputPaths =
     Derivation
-        { drvInputDrvs
-        , drvInputSrcs = Set.empty
-        , drvOutputs = Map.map toDerivationOutput outputPaths
-        , drvPlatform = "x86_64-linux"
-        , drvBuilder = "/nix/store/0bash/bin/bash"
-        , drvArgs = []
-        , drvEnvs = Map.empty
+        { inputDrvs
+        , inputSrcs = Set.empty
+        , outputs = Map.map toDerivationOutput outputPaths
+        , platform = "x86_64-linux"
+        , builder = "/nix/store/0bash/bin/bash"
+        , args = []
+        , envs = Map.empty
         }
   where
-    toDerivationOutput outPath = DerivationOutput{outPath, outHash = Nothing}
+    toDerivationOutput path = DerivationOutput{path, hash = Nothing}
 
 unit_walkLocalExisted :: IO ()
 unit_walkLocalExisted = do
     let drvA = mkDerivation Map.empty (Map.fromList [("out", objPathA)])
     let env =
             defaultEnv
-                { envDerivations = Map.fromList [(drvPathA, drvA)]
-                , envLocalObjects = Set.singleton objPathA
+                { derivations = Map.fromList [(drvPathA, drvA)]
+                , localObjects = Set.singleton objPathA
                 }
 
     let Right actual = runWalk env drvPathA "out"
 
     actual
         @?= DepGraph
-            { dgObjNodes =
+            { objNodes =
                 Map.fromList
                     [ (objPathA, ObjExisted)
                     ]
-            , dgDrvNodes =
+            , drvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
 
@@ -141,24 +145,24 @@ unit_walkUnsyncedThenLocalLeaf = do
     let narA = NarInfo{narInfoRefs = Set.fromList [objPathB]}
     let env =
             defaultEnv
-                { envDerivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
-                , envLocalObjects = Set.singleton objPathB
-                , envRemoteNars = Map.fromList [(objPathA, narA)]
+                { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
+                , localObjects = Set.singleton objPathB
+                , remoteNars = Map.fromList [(objPathA, narA)]
                 }
 
     let Right actual = runWalk env drvPathA "out"
 
     actual
         @?= DepGraph
-            { dgObjNodes =
+            { objNodes =
                 Map.fromList
-                    [ (objPathA, ObjUnsynced{stDrvPath = drvPathA, stRefPaths = Set.fromList [objPathB]})
+                    [ (objPathA, ObjUnsynced{drvPath = drvPathA, refPaths = Set.fromList [objPathB]})
                     , (objPathB, ObjExisted)
                     ]
-            , dgDrvNodes =
+            , drvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
-                    , (drvPathB, DrvNode{drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{inputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
+                    , (drvPathB, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
 
@@ -168,22 +172,22 @@ unit_walkUnbuiltFallback = do
     let drvB = mkDerivation Map.empty (Map.fromList [("out", objPathB)])
     let env =
             defaultEnv
-                { envDerivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
+                { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
                 }
 
     let Right actual = runWalk env drvPathA "out"
 
     actual
         @?= DepGraph
-            { dgObjNodes =
+            { objNodes =
                 Map.fromList
-                    [ (objPathA, ObjUnbuilt{stDrvPath = drvPathA})
-                    , (objPathB, ObjUnbuilt{stDrvPath = drvPathB})
+                    [ (objPathA, ObjUnbuilt{drvPath = drvPathA})
+                    , (objPathB, ObjUnbuilt{drvPath = drvPathB})
                     ]
-            , dgDrvNodes =
+            , drvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
-                    , (drvPathB, DrvNode{drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{inputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
+                    , (drvPathB, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
 
@@ -198,27 +202,27 @@ unit_walkDiamondVisitsOnce = do
     let narC = NarInfo{narInfoRefs = Set.fromList [objPathD]}
     let env =
             defaultEnv
-                { envDerivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC), (drvPathD, drvD)]
-                , envRemoteNars = Map.fromList [(objPathA, narA), (objPathB, narB), (objPathC, narC)]
+                { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC), (drvPathD, drvD)]
+                , remoteNars = Map.fromList [(objPathA, narA), (objPathB, narB), (objPathC, narC)]
                 }
 
     let Right actual = runWalk env drvPathA "out"
 
     actual
         @?= DepGraph
-            { dgObjNodes =
+            { objNodes =
                 Map.fromList
-                    [ (objPathA, ObjUnsynced{stDrvPath = drvPathA, stRefPaths = Set.fromList [objPathB, objPathC]})
-                    , (objPathB, ObjUnsynced{stDrvPath = drvPathB, stRefPaths = Set.fromList [objPathD]})
-                    , (objPathC, ObjUnsynced{stDrvPath = drvPathC, stRefPaths = Set.fromList [objPathD]})
-                    , (objPathD, ObjUnbuilt{stDrvPath = drvPathD})
+                    [ (objPathA, ObjUnsynced{drvPath = drvPathA, refPaths = Set.fromList [objPathB, objPathC]})
+                    , (objPathB, ObjUnsynced{drvPath = drvPathB, refPaths = Set.fromList [objPathD]})
+                    , (objPathC, ObjUnsynced{drvPath = drvPathC, refPaths = Set.fromList [objPathD]})
+                    , (objPathD, ObjUnbuilt{drvPath = drvPathD})
                     ]
-            , dgDrvNodes =
+            , drvNodes =
                 Map.fromList
-                    [ (drvPathA, DrvNode{drvInputObjPaths = Map.fromList [(objPathB, (drvPathB, "out")), (objPathC, (drvPathC, "out"))]})
-                    , (drvPathB, DrvNode{drvInputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
-                    , (drvPathC, DrvNode{drvInputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
-                    , (drvPathD, DrvNode{drvInputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{inputObjPaths = Map.fromList [(objPathB, (drvPathB, "out")), (objPathC, (drvPathC, "out"))]})
+                    , (drvPathB, DrvNode{inputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
+                    , (drvPathC, DrvNode{inputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
+                    , (drvPathD, DrvNode{inputObjPaths = Map.empty})
                     ]
             }
 
@@ -227,7 +231,7 @@ unit_walkMissingOutputNameError = do
     let drvA = mkDerivation Map.empty (Map.fromList [("out", objPathA)])
     let env =
             defaultEnv
-                { envDerivations = Map.fromList [(drvPathA, drvA)]
+                { derivations = Map.fromList [(drvPathA, drvA)]
                 }
 
     let actual = runWalk env drvPathA "dev"
@@ -240,8 +244,8 @@ unit_walkUnsyncedRefWithoutDeriverError = do
     let narA = NarInfo{narInfoRefs = Set.fromList [objPathX]}
     let env =
             defaultEnv
-                { envDerivations = Map.fromList [(drvPathA, drvA)]
-                , envRemoteNars = Map.fromList [(objPathA, narA)]
+                { derivations = Map.fromList [(drvPathA, drvA)]
+                , remoteNars = Map.fromList [(objPathA, narA)]
                 }
 
     let actual = runWalk env drvPathA "out"
@@ -254,7 +258,7 @@ unit_walkInputDrvMissingOutputNameError = do
     let drvB = mkDerivation Map.empty (Map.fromList [("out", objPathB)])
     let env =
             defaultEnv
-                { envDerivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
+                { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
                 }
 
     let actual = runWalk env drvPathA "out"

@@ -21,9 +21,9 @@ import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
 genStoreObjectPath :: (GenBase m ~ Identity, MonadGen m) => m StoreObjectPath
 genStoreObjectPath = do
-    stObjHash <- Nix32HashTest.genNix32Hash
-    stObjName <- Gen.text (Range.linear 0 50) (Gen.choice [Gen.alphaNum, pure '-', pure '_'])
-    pure $ StoreObjectPath{stObjHash, stObjName}
+    hash <- Nix32HashTest.genNix32Hash
+    name <- Gen.text (Range.linear 0 50) (Gen.choice [Gen.alphaNum, pure '-', pure '_'])
+    pure $ StoreObjectPath{hash, name}
 
 genStoreObjectPathText :: (GenBase m ~ Identity, MonadGen m) => m Text
 genStoreObjectPathText = Text.pack . StoreObjectPath.toFilePath <$> genStoreObjectPath
@@ -33,8 +33,8 @@ unit_fromText = do
     let Right actual = StoreObjectPath.fromText "wzr035k31pmpn2caabq8qwv1npg571z9-hello-2.12.3"
     let expected =
             StoreObjectPath
-                { stObjHash = Nix32Hash.uncheckedText "wzr035k31pmpn2caabq8qwv1npg571z9"
-                , stObjName = "hello-2.12.3"
+                { hash = Nix32Hash.uncheckedText "wzr035k31pmpn2caabq8qwv1npg571z9"
+                , name = "hello-2.12.3"
                 }
     actual @?= expected
 

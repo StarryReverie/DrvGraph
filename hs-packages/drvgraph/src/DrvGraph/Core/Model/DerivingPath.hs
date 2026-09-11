@@ -10,6 +10,8 @@ module DrvGraph.Core.Model.DerivingPath
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
+import Optics ((^.))
+import Optics.TH (makeFieldLabelsNoPrefix)
 import Text.Megaparsec (Parsec, (<?>))
 import Text.Megaparsec qualified as MP
 import Text.Megaparsec.Char qualified as MPC
@@ -20,22 +22,24 @@ import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 
 -- | Path to a derivation file in the Nix store, without the store directory.
 data DerivingPath = DerivingPath
-    { dpHash :: Nix32Hash
-    , dpName :: Text
+    { hash :: Nix32Hash
+    , name :: Text
     }
     deriving (Eq, Ord, Show)
+
+makeFieldLabelsNoPrefix ''DerivingPath
 
 type Parser = Parsec Void Text
 
 -- | Parse a @DerivingPath@.
 parse :: Parser DerivingPath
 parse = do
-    dpHash <- Nix32Hash.parse <?> "deriving path hash"
+    hash <- Nix32Hash.parse <?> "deriving path hash"
     MPC.char '-'
-    dpName <-
+    name <-
         Text.pack <$> MP.manyTill MP.anySingle (MPC.string ".drv")
             <?> "deriving path name"
-    pure DerivingPath{dpHash, dpName}
+    pure DerivingPath{hash, name}
 
 -- | Try to convert a @Text@ to @DerivingPath@.
 fromText :: Text -> AppEither DerivingPath
@@ -48,8 +52,8 @@ fromText raw = withErrContext "could not parse deriving path" $ do
 toText :: DerivingPath -> Text
 toText dp = hash <> "-" <> name <> ".drv"
   where
-    hash = Nix32Hash.get (dpHash dp)
-    name = dpName dp
+    hash = Nix32Hash.get (dp ^. #hash)
+    name = dp ^. #name
 
 -- | Render a @DerivingPath@ datatype to a @FilePath@.
 toFilePath :: DerivingPath -> FilePath

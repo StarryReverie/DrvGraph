@@ -59,6 +59,11 @@ library
       DefaultSignatures
       PatternSynonyms
       TemplateHaskell
+      DisambiguateRecordFields
+      DuplicateRecordFields
+      OverloadedLabels
+      UndecidableInstances
+      NoFieldSelectors
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
   build-depends:
       base
@@ -68,6 +73,7 @@ library
     , filepath
     , megaparsec
     , mtl
+    , optics
     , text
     , transformers
   default-language: GHC2024
@@ -109,6 +115,11 @@ executable drvgraph
       DefaultSignatures
       PatternSynonyms
       TemplateHaskell
+      DisambiguateRecordFields
+      DuplicateRecordFields
+      OverloadedLabels
+      UndecidableInstances
+      NoFieldSelectors
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
   build-depends:
       base
@@ -119,6 +130,7 @@ executable drvgraph
     , filepath
     , megaparsec
     , mtl
+    , optics
     , text
     , transformers
   default-language: GHC2024
@@ -167,6 +179,11 @@ test-suite test
       DefaultSignatures
       PatternSynonyms
       TemplateHaskell
+      DisambiguateRecordFields
+      DuplicateRecordFields
+      OverloadedLabels
+      UndecidableInstances
+      NoFieldSelectors
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -Wno-incomplete-uni-patterns
   build-depends:
       base
@@ -179,6 +196,7 @@ test-suite test
     , hedgehog
     , megaparsec
     , mtl
+    , optics
     , tasty
     , tasty-hedgehog
     , tasty-hunit

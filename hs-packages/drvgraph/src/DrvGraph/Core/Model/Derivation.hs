@@ -12,6 +12,7 @@ import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
+import Optics.TH (makeFieldLabelsNoPrefix)
 import System.FilePath qualified as FP
 import Text.Megaparsec (Parsec, (<?>))
 import Text.Megaparsec qualified as MP
@@ -24,29 +25,33 @@ import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
 -- | The Nix derivation's data structure.
 data Derivation = Derivation
-    { drvInputDrvs :: Map DerivingPath (Set Text)
-    , drvInputSrcs :: Set StoreObjectPath
-    , drvOutputs :: Map Text DerivationOutput
-    , drvPlatform :: Text
-    , drvBuilder :: FilePath
-    , drvArgs :: [Text]
-    , drvEnvs :: Map Text Text
+    { inputDrvs :: Map DerivingPath (Set Text)
+    , inputSrcs :: Set StoreObjectPath
+    , outputs :: Map Text DerivationOutput
+    , platform :: Text
+    , builder :: FilePath
+    , args :: [Text]
+    , envs :: Map Text Text
     }
     deriving (Eq, Show)
 
 -- | The output field of a derivation.
 data DerivationOutput = DerivationOutput
-    { outPath :: StoreObjectPath
-    , outHash :: Maybe OutputHash
+    { path :: StoreObjectPath
+    , hash :: Maybe OutputHash
     }
     deriving (Eq, Show)
 
 -- | The hash of a derivation's output.
 data OutputHash = OutputHash
-    { hashAlgo :: Text
-    , hashVal :: Text
+    { algo :: Text
+    , val :: Text
     }
     deriving (Eq, Show)
+
+makeFieldLabelsNoPrefix ''Derivation
+makeFieldLabelsNoPrefix ''DerivationOutput
+makeFieldLabelsNoPrefix ''OutputHash
 
 type Parser = Parsec Void Text
 
@@ -56,20 +61,20 @@ parse = parseDerivation
 
 parseDerivation :: Parser Derivation
 parseDerivation = MP.between (MPC.string "Derive(") (MPC.char ')') $ do
-    drvOutputs <- parseManyDerivationOutputs <?> "derivation outputs"
+    outputs <- parseManyDerivationOutputs <?> "derivation outputs"
     _ <- MPC.char ','
-    drvInputDrvs <- parseManyInputDrvs <?> "derivation input derivations"
+    inputDrvs <- parseManyInputDrvs <?> "derivation input derivations"
     _ <- MPC.char ','
-    drvInputSrcs <- makeSetParser parseStoreObjectPath <?> "derivation input sources"
+    inputSrcs <- makeSetParser parseStoreObjectPath <?> "derivation input sources"
     _ <- MPC.char ','
-    drvPlatform <- parseString <?> "derivation platform"
+    platform <- parseString <?> "derivation platform"
     _ <- MPC.char ','
-    drvBuilder <- parseFilePath <?> "derivation builder"
+    builder <- parseFilePath <?> "derivation builder"
     _ <- MPC.char ','
-    drvArgs <- makeListParser parseString <?> "derivation arguments"
+    args <- makeListParser parseString <?> "derivation arguments"
     _ <- MPC.char ','
-    drvEnvs <- makeMapParser (makePairParaser parseString parseString) <?> "derivation environments"
-    pure Derivation{drvInputDrvs, drvInputSrcs, drvOutputs, drvPlatform, drvBuilder, drvArgs, drvEnvs}
+    envs <- makeMapParser (makePairParaser parseString parseString) <?> "derivation environments"
+    pure Derivation{inputDrvs, inputSrcs, outputs, platform, builder, args, envs}
 
 parseManyDerivationOutputs :: Parser (Map Text DerivationOutput)
 parseManyDerivationOutputs = makeMapParser parseDerivationOutput
@@ -78,16 +83,16 @@ parseDerivationOutput :: Parser (Text, DerivationOutput)
 parseDerivationOutput = MP.between (MPC.char '(') (MPC.char ')') $ do
     outName <- parseString <?> "output name"
     _ <- MPC.char ','
-    outPath <- parseStoreObjectPath <?> "output path"
+    path <- parseStoreObjectPath <?> "output path"
     _ <- MPC.char ','
-    outHash <- do
-        hashAlgo <- parseString <?> "output hash algorithm"
+    hash <- do
+        algo <- parseString <?> "output hash algorithm"
         _ <- MPC.char ','
-        hashVal <- parseString <?> "output hash"
-        if Text.null hashAlgo && Text.null hashVal
+        val <- parseString <?> "output hash"
+        if Text.null algo && Text.null val
             then pure Nothing
-            else pure . Just $ OutputHash{hashAlgo, hashVal}
-    let out = DerivationOutput{outPath, outHash}
+            else pure . Just $ OutputHash{algo, val}
+    let out = DerivationOutput{path, hash}
     pure (outName, out)
 
 parseManyInputDrvs :: Parser (Map DerivingPath (Set Text))

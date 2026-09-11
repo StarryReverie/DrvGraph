@@ -10,6 +10,8 @@ module DrvGraph.Core.Model.StoreObjectPath
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
+import Optics ((^.))
+import Optics.TH (makeFieldLabelsNoPrefix)
 import Text.Megaparsec (Parsec, (<?>))
 import Text.Megaparsec qualified as MP
 import Text.Megaparsec.Char qualified as MPC
@@ -20,20 +22,22 @@ import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 
 -- | Path to a store object in the Nix store, without the store directory.
 data StoreObjectPath = StoreObjectPath
-    { stObjHash :: Nix32Hash
-    , stObjName :: Text
+    { hash :: Nix32Hash
+    , name :: Text
     }
     deriving (Eq, Ord, Show)
+
+makeFieldLabelsNoPrefix ''StoreObjectPath
 
 type Parser = Parsec Void Text
 
 -- | Parse a @StoreObjectPath@.
 parse :: Parser StoreObjectPath
 parse = do
-    stObjHash <- Nix32Hash.parse <?> "store object path hash"
+    hash <- Nix32Hash.parse <?> "store object path hash"
     MPC.char '-'
-    stObjName <- MP.takeWhileP Nothing (/= '/') <?> "store object path name"
-    pure StoreObjectPath{stObjHash, stObjName}
+    name <- MP.takeWhileP Nothing (/= '/') <?> "store object path name"
+    pure StoreObjectPath{hash, name}
 
 -- | Try to convert a @Text@ to a @StoreObjectPath@.
 fromText :: Text -> AppEither StoreObjectPath
@@ -46,8 +50,8 @@ fromText raw = withErrContext "could not parse store object path" $ do
 toText :: StoreObjectPath -> Text
 toText sop = hash <> "-" <> name
   where
-    hash = Nix32Hash.get (stObjHash sop)
-    name = stObjName sop
+    hash = Nix32Hash.get (sop ^. #hash)
+    name = sop ^. #name
 
 -- | Render a @StoreObjectPath@ datatype to a @FilePath@.
 toFilePath :: StoreObjectPath -> FilePath

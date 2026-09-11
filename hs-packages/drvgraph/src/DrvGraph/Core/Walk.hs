@@ -4,12 +4,14 @@ module DrvGraph.Core.Walk
 
 import Control.Monad (forM, forM_)
 import Control.Monad.Except (throwError)
-import Control.Monad.State.Strict (StateT (..), execStateT, get, modify)
+import Control.Monad.State.Strict (StateT (..), execStateT, gets, modify)
 import Control.Monad.Trans (lift)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text (Text)
+import Optics ((%~), (^.))
+import Optics.TH (makeFieldLabelsNoPrefix)
 
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation)
 import DrvGraph.Core.Capability.CapDerivation qualified as CapDerivation
@@ -19,11 +21,17 @@ import DrvGraph.Core.Error (AppExceptT, appError, withErrContext)
 import DrvGraph.Core.Model.DepGraph (DepGraph, DrvNode (..), ObjNode (ObjExisted, ObjUnbuilt, ObjUnsynced))
 import DrvGraph.Core.Model.DepGraph qualified as DepGraph
 import DrvGraph.Core.Model.Derivation (Derivation (..), DerivationOutput (..))
-import DrvGraph.Core.Model.Derivation qualified as Derivation
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
+
+data WalkState = WalkState
+    { loadedDrvCache :: Map DerivingPath Derivation
+    , depGraph :: DepGraph
+    }
+
+makeFieldLabelsNoPrefix ''WalkState
 
 -- | Traverse the Nix store from a derivation's output, which coresponds to a
 -- store object path uniquely.
@@ -31,16 +39,11 @@ walk
     :: (CapDerivation m, CapStoreObject m)
     => FilePath -> DerivingPath -> Text -> AppExceptT m DepGraph
 walk storeDir drvPath outName = do
-    let initial = WalkState{wsLoadedDrvCache = Map.empty, wsDepGraph = DepGraph.empty}
-    WalkState{wsDepGraph} <- execStateT (walkImpl storeDir drvPath outName) initial
-    pure wsDepGraph
+    let initial = WalkState{loadedDrvCache = Map.empty, depGraph = DepGraph.empty}
+    WalkState{depGraph} <- execStateT (walkImpl storeDir drvPath outName) initial
+    pure depGraph
 
 type CurrentT m = StateT WalkState (AppExceptT m)
-
-data WalkState = WalkState
-    { wsLoadedDrvCache :: Map DerivingPath Derivation
-    , wsDepGraph :: DepGraph
-    }
 
 walkImpl
     :: (CapDerivation m, CapStoreObject m)
@@ -50,20 +53,19 @@ walkImpl storeDir drvPath outName = do
     drv <- ensureDerivation drvPath (CapDerivation.loadDerivation storeDir)
 
     -- Insert @drv@'s @DrvNode@ to the dependency graph, if not done yet.
-    depGraph <- wsDepGraph <$> get
+    depGraph <- gets (^. #depGraph)
     drvNode <- case DepGraph.lookupDrvNode drvPath depGraph of
         Just drvNode -> pure drvNode
         Nothing -> do
-            drvInputObjPaths <- resolveDrvInputObjPaths storeDir drv
-            let drvNode = DrvNode{drvInputObjPaths}
-            modify $ withDepGraph $ DepGraph.insertDrvNode drvPath drvNode
+            inputObjPaths <- resolveDrvInputObjPaths storeDir drv
+            let drvNode = DrvNode{inputObjPaths}
+            modify $ #depGraph %~ DepGraph.insertDrvNode drvPath drvNode
             pure drvNode
 
     -- Get the @StoreObjectPath@ of @drvPath@^@outName@.
-    stObjPath <- case Map.lookup outName . Derivation.drvOutputs $ drv of
+    stObjPath <- case Map.lookup outName $ drv ^. #outputs of
         Just output -> do
-            let DerivationOutput{outPath} = output
-            pure outPath
+            pure $ output ^. #path
         Nothing -> do
             let dp = DerivingPath.toText drvPath
             let errMsg = "derivation " <> dp <> " doesn't contain output " <> outName
@@ -71,7 +73,7 @@ walkImpl storeDir drvPath outName = do
 
     -- Check whether we have visited the current store object path. If not,
     -- process it and recurse into its dependencies.
-    maybeVisitedObj <- DepGraph.lookupObjNode stObjPath . wsDepGraph <$> get
+    maybeVisitedObj <- gets $ DepGraph.lookupObjNode stObjPath . (^. #depGraph)
     case maybeVisitedObj of
         Just _ -> pure ()
         Nothing -> resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode
@@ -88,23 +90,23 @@ resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode = do
         -- Stop at already existed store object path, whose its closure
         -- exists as well.
         then do
-            modify $ withDepGraph $ DepGraph.insertObjNode stObjPath ObjExisted
+            modify $ #depGraph %~ DepGraph.insertObjNode stObjPath ObjExisted
         else do
             maybeNarInfo <- do
                 let errMsg = "could not query remote store object path" <> StoreObjectPath.toText stObjPath
                 lift $ withErrContext errMsg $ CapStoreObject.queryRemoteStoreObject stObjPath
 
             -- Get the list of dependent input derivation outputs to recurse into.
-            let DrvNode{drvInputObjPaths} = drvNode
+            let DrvNode{inputObjPaths} = drvNode
             inputDrvs <- case maybeNarInfo of
-                Just NarInfo{narInfoRefs = stRefPaths} -> do
+                Just NarInfo{narInfoRefs = refPaths} -> do
                     -- Store object in remote binary caches only needs runtime
                     -- dependencies included in its narinfo's @References@ line.
-                    let objNode = ObjUnsynced{stDrvPath = drvPath, stRefPaths}
-                    modify $ withDepGraph $ DepGraph.insertObjNode stObjPath objNode
+                    let objNode = ObjUnsynced{drvPath, refPaths}
+                    modify $ #depGraph %~ DepGraph.insertObjNode stObjPath objNode
 
-                    forM (Set.toList stRefPaths) $ \stRefPath ->
-                        case Map.lookup stRefPath drvInputObjPaths of
+                    forM (Set.toList refPaths) $ \stRefPath ->
+                        case Map.lookup stRefPath inputObjPaths of
                             Just inputDrv -> pure inputDrv
                             Nothing -> do
                                 let sop = StoreObjectPath.toText stRefPath
@@ -113,10 +115,9 @@ resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode = do
                 Nothing -> do
                     -- Otherwise Nix needs to build this derivation locally, so
                     -- all input derivation outputs are required.
-                    let objNode = ObjUnbuilt{stDrvPath = drvPath}
-                    modify $ withDepGraph $ DepGraph.insertObjNode stObjPath objNode
-
-                    pure $ Map.elems drvInputObjPaths
+                    let objNode = ObjUnbuilt{drvPath}
+                    modify $ #depGraph %~ DepGraph.insertObjNode stObjPath objNode
+                    pure $ Map.elems inputObjPaths
 
             -- Recurse into dependencies.
             forM_ inputDrvs $ \(inputDrv, inputDrvOutName) -> do
@@ -126,17 +127,17 @@ resolveDrvInputObjPaths
     :: (CapDerivation m)
     => FilePath -> Derivation -> CurrentT m (Map StoreObjectPath (DerivingPath, Text))
 resolveDrvInputObjPaths storeDir drv = do
-    let Derivation{drvInputDrvs} = drv
+    let Derivation{inputDrvs} = drv
 
-    inputs <- forM (Map.toList drvInputDrvs) $ \(inputDrvPath, outNames) -> do
+    inputs <- forM (Map.toList inputDrvs) $ \(inputDrvPath, outNames) -> do
         inputDrv <- ensureDerivation inputDrvPath (CapDerivation.loadDerivation storeDir)
         pure (inputDrvPath, inputDrv, outNames)
 
     drvObjPathsList <- forM inputs $ \(inputDrvPath, inputDrv, outNames) -> do
-        let outs = drvOutputs inputDrv
+        let outs = inputDrv ^. #outputs
         forM (Set.toList outNames) $ \outName -> do
             case Map.lookup outName outs of
-                Just DerivationOutput{outPath} -> pure (outPath, (inputDrvPath, outName))
+                Just DerivationOutput{path} -> pure (path, (inputDrvPath, outName))
                 Nothing -> do
                     let dp = DerivingPath.toText inputDrvPath
                     let errMsg = "derivation " <> dp <> " doesn't output " <> outName
@@ -148,26 +149,12 @@ ensureDerivation
     :: (Monad m)
     => DerivingPath -> (DerivingPath -> AppExceptT m Derivation) -> CurrentT m Derivation
 ensureDerivation drvPath loader = do
-    res <- Map.lookup drvPath . wsLoadedDrvCache <$> get
+    res <- gets $ Map.lookup drvPath . (^. #loadedDrvCache)
     case res of
         Just drv -> pure drv
         Nothing -> do
             drv <- do
                 let errMsg = "could not load derivation: " <> DerivingPath.toText drvPath
                 lift $ withErrContext errMsg $ loader drvPath
-            modify $ withLoadedDrvCache $ Map.insert drvPath drv
+            modify $ #loadedDrvCache %~ Map.insert drvPath drv
             pure drv
-
-withLoadedDrvCache
-    :: (Map DerivingPath Derivation -> Map DerivingPath Derivation)
-    -> WalkState
-    -> WalkState
-withLoadedDrvCache f state@WalkState{wsLoadedDrvCache} =
-    state{wsLoadedDrvCache = f wsLoadedDrvCache}
-
-withDepGraph
-    :: (DepGraph -> DepGraph)
-    -> WalkState
-    -> WalkState
-withDepGraph f state@WalkState{wsDepGraph} =
-    state{wsDepGraph = f wsDepGraph}

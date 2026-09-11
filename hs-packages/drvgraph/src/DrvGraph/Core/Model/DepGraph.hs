@@ -13,6 +13,8 @@ import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Set (Set)
 import Data.Text (Text)
+import Optics ((^.))
+import Optics.TH (makeFieldLabelsNoPrefix)
 
 import DrvGraph.Core.Model.DerivingPath (DerivingPath (..))
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath (..))
@@ -21,8 +23,8 @@ import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath (..))
 -- edges represent the dependencies between entities. Node @A@ points to node
 -- @B@ iff. entity @A@ depends on entity @B@. The node's path is the map key.
 data DepGraph = DepGraph
-    { dgObjNodes :: Map StoreObjectPath ObjNode
-    , dgDrvNodes :: Map DerivingPath DrvNode
+    { objNodes :: Map StoreObjectPath ObjNode
+    , drvNodes :: Map DerivingPath DrvNode
     }
     deriving (Eq, Show)
 
@@ -30,40 +32,44 @@ data DepGraph = DepGraph
 data ObjNode
     = ObjExisted
     | ObjUnsynced
-        { stDrvPath :: DerivingPath
-        , stRefPaths :: Set StoreObjectPath
+        { drvPath :: DerivingPath
+        , refPaths :: Set StoreObjectPath
         }
     | ObjUnbuilt
-        { stDrvPath :: DerivingPath
+        { drvPath :: DerivingPath
         }
     deriving (Eq, Show)
 
 -- | Inputs of the derivation at @dgDrvNodes@'s key.
 newtype DrvNode = DrvNode
-    { drvInputObjPaths :: Map StoreObjectPath (DerivingPath, Text)
+    { inputObjPaths :: Map StoreObjectPath (DerivingPath, Text)
     }
     deriving (Eq, Show)
+
+makeFieldLabelsNoPrefix ''DepGraph
+makeFieldLabelsNoPrefix ''ObjNode
+makeFieldLabelsNoPrefix ''DrvNode
 
 -- | Create an empty @DepGraph@.
 empty :: DepGraph
 empty =
     DepGraph
-        { dgObjNodes = Map.empty
-        , dgDrvNodes = Map.empty
+        { objNodes = Map.empty
+        , drvNodes = Map.empty
         }
 
 -- | Insert a @ObjNode@ with the given @StoreObjectPath@.
 insertObjNode :: StoreObjectPath -> ObjNode -> DepGraph -> DepGraph
-insertObjNode path obj graph = graph{dgObjNodes = Map.insert path obj (dgObjNodes graph)}
+insertObjNode path obj graph = graph{objNodes = Map.insert path obj (graph ^. #objNodes)}
 
 -- | Insert a @DrvNode@ with the given @DerivingPath@.
 insertDrvNode :: DerivingPath -> DrvNode -> DepGraph -> DepGraph
-insertDrvNode path drv graph = graph{dgDrvNodes = Map.insert path drv (dgDrvNodes graph)}
+insertDrvNode path drv graph = graph{drvNodes = Map.insert path drv (graph ^. #drvNodes)}
 
 -- | Lookup a @ObjNode@ with a @StoreObjectPath@.
 lookupObjNode :: StoreObjectPath -> DepGraph -> Maybe ObjNode
-lookupObjNode path = Map.lookup path . dgObjNodes
+lookupObjNode path = Map.lookup path . (^. #objNodes)
 
 -- | Lookup a @DrvNode@ with a @DerivingPath@.
 lookupDrvNode :: DerivingPath -> DepGraph -> Maybe DrvNode
-lookupDrvNode path = Map.lookup path . dgDrvNodes
+lookupDrvNode path = Map.lookup path . (^. #drvNodes)

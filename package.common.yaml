@@ -31,6 +31,11 @@
     - DefaultSignatures
     - PatternSynonyms
     - TemplateHaskell
+    - DisambiguateRecordFields
+    - DuplicateRecordFields
+    - OverloadedLabels
+    - UndecidableInstances
+    - NoFieldSelectors
   ghc-options:
     - -Wall
     - -Wcompat
