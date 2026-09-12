@@ -27,6 +27,7 @@ library
       DrvGraph.Core.Model.DerivingPath
       DrvGraph.Core.Model.Nix32Hash
       DrvGraph.Core.Model.StoreObjectPath
+      DrvGraph.Core.PrettyPrint
       DrvGraph.Core.TreeRepresentation
       DrvGraph.Core.Walk
   other-modules:
@@ -71,10 +72,12 @@ library
       NoFieldSelectors
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
   build-depends:
-      base
+      ansi-terminal
+    , base
     , bytestring
     , containers
     , directory
+    , dlist
     , filepath
     , megaparsec
     , mtl
@@ -127,10 +130,12 @@ executable drvgraph
       NoFieldSelectors
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
   build-depends:
-      base
+      ansi-terminal
+    , base
     , bytestring
     , containers
     , directory
+    , dlist
     , drvgraph
     , filepath
     , megaparsec
@@ -192,10 +197,12 @@ test-suite test
       NoFieldSelectors
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -Wno-incomplete-uni-patterns
   build-depends:
-      base
+      ansi-terminal
+    , base
     , bytestring
     , containers
     , directory
+    , dlist
     , drvgraph
     , file-embed
     , filepath

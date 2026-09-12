@@ -6,10 +6,12 @@ name: drvgraph
 version: 0.1.0.0
 
 dependencies:
+  - ansi-terminal
   - base
   - bytestring
   - containers
   - directory
+  - dlist
   - filepath
   - megaparsec
   - mtl
