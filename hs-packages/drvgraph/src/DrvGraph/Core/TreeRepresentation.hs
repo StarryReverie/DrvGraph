@@ -1,7 +1,7 @@
-module DrvGraph.Core.TreeDisplay
+module DrvGraph.Core.TreeRepresentation
     ( StoreObjectTree (..)
     , DerivationTree (..)
-    , toDisplayTree
+    , depGraphToTreeRepresentation
     ) where
 
 import Control.Applicative (empty)
@@ -62,8 +62,8 @@ makeFieldLabelsNoPrefix ''ToDisplayTreeState
 
 -- | Convert a traversal from a @StoreObjectPath@ in a @DepGraph@ to a tree
 -- structure for displaying.
-toDisplayTree :: DepGraph -> StoreObjectPath -> Maybe StoreObjectTree
-toDisplayTree graph path = evalState (runMaybeT (recurseStoreObject graph path)) initial
+depGraphToTreeRepresentation :: DepGraph -> StoreObjectPath -> Maybe StoreObjectTree
+depGraphToTreeRepresentation graph path = evalState (runMaybeT (recurseStoreObject graph path)) initial
   where
     initial =
         ToDisplayTreeState
