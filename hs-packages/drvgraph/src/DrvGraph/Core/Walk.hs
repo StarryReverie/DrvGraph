@@ -157,7 +157,7 @@ ensureDerivation drvPath loader = do
         Just drv -> pure drv
         Nothing -> do
             drv <- do
-                let errMsg = "could not load derivation: " <> DerivingPath.toText drvPath
+                let errMsg = "could not load derivation " <> DerivingPath.toText drvPath
                 lift $ withErrContext errMsg $ loader drvPath
             modify $ #loadedDrvCache %~ Map.insert drvPath drv
             pure drv

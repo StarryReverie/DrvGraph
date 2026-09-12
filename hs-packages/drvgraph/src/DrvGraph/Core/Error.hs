@@ -3,12 +3,14 @@ module DrvGraph.Core.Error
     , AppEither
     , AppExceptT
     , appError
+    , exceptionToAppError
     , addErrContext
     , withErrContext
     , renderErr
     , unwrapRight
     ) where
 
+import Control.Exception (Exception (displayException))
 import Control.Monad.Except (ExceptT, MonadError, withError)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Text (Text)
@@ -29,6 +31,10 @@ type AppExceptT m = ExceptT AppError m
 -- | Make a new error.
 appError :: Text -> AppError
 appError = AppError . (:| [])
+
+-- | Convert an @Exception e@ to @AppError@.
+exceptionToAppError :: (Exception e) => e -> AppError
+exceptionToAppError = appError . Text.pack . displayException
 
 -- | Attach an additional layer of error message to the error type.
 addErrContext :: Text -> AppError -> AppError
