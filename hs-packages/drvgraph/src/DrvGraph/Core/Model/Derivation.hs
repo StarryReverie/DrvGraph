@@ -29,7 +29,7 @@ data Derivation = Derivation
     , inputSrcs :: Set StoreObjectPath
     , outputs :: Map Text DerivationOutput
     , platform :: Text
-    , builder :: FilePath
+    , builder :: Text
     , args :: [Text]
     , envs :: Map Text Text
     }
@@ -69,7 +69,7 @@ parseDerivation = MP.between (MPC.string "Derive(") (MPC.char ')') $ do
     _ <- MPC.char ','
     platform <- parseString <?> "derivation platform"
     _ <- MPC.char ','
-    builder <- parseFilePath <?> "derivation builder"
+    builder <- parseString <?> "derivation builder"
     _ <- MPC.char ','
     args <- makeListParser parseString <?> "derivation arguments"
     _ <- MPC.char ','
