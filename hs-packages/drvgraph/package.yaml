@@ -7,14 +7,20 @@ version: 0.1.0.0
 
 dependencies:
   - ansi-terminal
+  - async
   - base
   - bytestring
   - containers
   - directory
   - dlist
+  - exceptions
   - filepath
+  - http-client
+  - http-client-tls
+  - http-types
   - megaparsec
   - mtl
+  - network-uri
   - optics
   - text
   - transformers

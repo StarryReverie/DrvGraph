@@ -4,6 +4,7 @@ module DrvGraph.Application.Execution
     , runApp
     ) where
 
+import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
 
@@ -25,6 +26,7 @@ newtype App a = App (ReaderT AppEnvironment IO a)
         , Monad
         , MonadIO
         , MonadReader AppEnvironment
+        , MonadThrow
         )
 
 -- | Run the application with the given environment.

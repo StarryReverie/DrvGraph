@@ -73,14 +73,20 @@ library
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
   build-depends:
       ansi-terminal
+    , async
     , base
     , bytestring
     , containers
     , directory
     , dlist
+    , exceptions
     , filepath
+    , http-client
+    , http-client-tls
+    , http-types
     , megaparsec
     , mtl
+    , network-uri
     , optics
     , text
     , transformers
@@ -131,15 +137,21 @@ executable drvgraph
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
   build-depends:
       ansi-terminal
+    , async
     , base
     , bytestring
     , containers
     , directory
     , dlist
     , drvgraph
+    , exceptions
     , filepath
+    , http-client
+    , http-client-tls
+    , http-types
     , megaparsec
     , mtl
+    , network-uri
     , optics
     , text
     , transformers
@@ -198,17 +210,23 @@ test-suite test
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -Wno-incomplete-uni-patterns
   build-depends:
       ansi-terminal
+    , async
     , base
     , bytestring
     , containers
     , directory
     , dlist
     , drvgraph
+    , exceptions
     , file-embed
     , filepath
     , hedgehog
+    , http-client
+    , http-client-tls
+    , http-types
     , megaparsec
     , mtl
+    , network-uri
     , optics
     , tasty
     , tasty-hedgehog
