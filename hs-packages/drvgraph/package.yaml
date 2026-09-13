@@ -22,6 +22,7 @@ dependencies:
   - mtl
   - network-uri
   - optics
+  - process
   - text
   - transformers
 
