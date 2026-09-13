@@ -8,6 +8,8 @@ import Control.Monad.State.Strict (StateT (..), gets, modify)
 import Control.Monad.Trans (lift)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Maybe (catMaybes)
+import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Optics ((%~), (^.))
@@ -21,6 +23,7 @@ import DrvGraph.Core.Error (AppExceptT, appError, withErrContext)
 import DrvGraph.Core.Model.DepGraph (DepGraph, DrvNode (..), ObjNode (ObjExisted, ObjUnbuilt, ObjUnsynced))
 import DrvGraph.Core.Model.DepGraph qualified as DepGraph
 import DrvGraph.Core.Model.Derivation (Derivation (..), DerivationOutput (..))
+import DrvGraph.Core.Model.Derivation qualified as Derivation
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
@@ -77,14 +80,14 @@ walkImpl storeDir drvPath outName = do
     maybeVisitedObj <- gets $ DepGraph.lookupObjNode stObjPath . (^. #depGraph)
     case maybeVisitedObj of
         Just _ -> pure ()
-        Nothing -> resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode
+        Nothing -> resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode drv
 
     pure stObjPath
 
 resolveObjNodeAndRecurse
     :: (CapDerivation m, CapStoreObject m)
-    => FilePath -> DerivingPath -> StoreObjectPath -> DrvNode -> CurrentT m ()
-resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode = do
+    => FilePath -> DerivingPath -> StoreObjectPath -> DrvNode -> Derivation -> CurrentT m ()
+resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode drv = do
     isSynced <- do
         let errMsg = "could not query local store object path" <> StoreObjectPath.toText stObjPath
         lift $ withErrContext errMsg $ CapStoreObject.queryLocalStoreObject storeDir stObjPath
@@ -107,14 +110,7 @@ resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode = do
                     -- dependencies included in its narinfo's @References@ line.
                     let objNode = ObjUnsynced{drvPath, refPaths}
                     modify $ #depGraph %~ DepGraph.insertObjNode stObjPath objNode
-
-                    forM (Set.toList refPaths) $ \stRefPath ->
-                        case Map.lookup stRefPath inputObjPaths of
-                            Just inputDrv -> pure inputDrv
-                            Nothing -> do
-                                let sop = StoreObjectPath.toText stRefPath
-                                let errMsg = "deriver for store object " <> sop <> " doesn't exist"
-                                throwError $ appError errMsg
+                    collectInputDrvsFromRefs refPaths inputObjPaths drv
                 Nothing -> do
                     -- Otherwise Nix needs to build this derivation locally, so
                     -- all input derivation outputs are required.
@@ -125,6 +121,30 @@ resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode = do
             -- Recurse into dependencies.
             forM_ inputDrvs $ \(inputDrv, inputDrvOutName) -> do
                 walkImpl storeDir inputDrv inputDrvOutName
+
+collectInputDrvsFromRefs
+    :: (Monad m)
+    => Set StoreObjectPath
+    -> Map StoreObjectPath (DerivingPath, Text)
+    -> Derivation
+    -> CurrentT m [(DerivingPath, Text)]
+collectInputDrvsFromRefs refPaths inputObjPaths drv = do
+    maybeInputDrvs <- forM (Set.toList refPaths) $ \refPath -> do
+        let inSelf = Derivation.existsOutput refPath drv
+        let inDirectInputs = Map.lookup refPath inputObjPaths
+
+        case (inSelf, inDirectInputs) of
+            (True, _) -> do
+                -- If this store path is an output of the derivation itself,
+                -- don't recurse into itself.
+                pure Nothing
+            (False, Just inputDrv) -> pure $ Just inputDrv
+            (False, Nothing) -> do
+                let sop = StoreObjectPath.toText refPath
+                let errMsg = "deriver for store object " <> sop <> " doesn't exist"
+                throwError $ appError errMsg
+
+    pure $ catMaybes maybeInputDrvs
 
 resolveDrvInputObjPaths
     :: (CapDerivation m)

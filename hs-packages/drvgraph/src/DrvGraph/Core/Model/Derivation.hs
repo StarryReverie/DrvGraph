@@ -3,6 +3,7 @@ module DrvGraph.Core.Model.Derivation
     , DerivationOutput (..)
     , OutputHash (..)
     , parse
+    , existsOutput
     ) where
 
 import Data.Map.Strict (Map)
@@ -12,6 +13,7 @@ import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
+import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 import System.FilePath qualified as FP
 import Text.Megaparsec (Parsec, (<?>))
@@ -158,3 +160,6 @@ parseFilePath = do
         Just (first, _) | first == '/' -> pure unchecked
         _ -> fail "file path should not be empty and starts with '/'"
     pure $ Text.unpack checked
+
+existsOutput :: StoreObjectPath -> Derivation -> Bool
+existsOutput objPath drv = any (\out -> out ^. #path == objPath) (drv ^. #outputs)
