@@ -6,6 +6,7 @@ import Control.Monad (forM, forM_)
 import Control.Monad.Except (throwError)
 import Control.Monad.State.Strict (StateT (..), gets, modify)
 import Control.Monad.Trans (lift)
+import Data.Foldable (find)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes)
@@ -110,7 +111,7 @@ resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode drv = do
                     -- dependencies included in its narinfo's @References@ line.
                     let objNode = ObjUnsynced{drvPath, refPaths}
                     modify $ #depGraph %~ DepGraph.insertObjNode stObjPath objNode
-                    collectInputDrvsFromRefs refPaths inputObjPaths drv
+                    collectInputDrvsFromRefs storeDir refPaths inputObjPaths drv
                 Nothing -> do
                     -- Otherwise Nix needs to build this derivation locally, so
                     -- all input derivation outputs are required.
@@ -123,12 +124,13 @@ resolveObjNodeAndRecurse storeDir drvPath stObjPath drvNode drv = do
                 walkImpl storeDir inputDrv inputDrvOutName
 
 collectInputDrvsFromRefs
-    :: (Monad m)
-    => Set StoreObjectPath
+    :: (CapDerivation m)
+    => FilePath
+    -> Set StoreObjectPath
     -> Map StoreObjectPath (DerivingPath, Text)
     -> Derivation
     -> CurrentT m [(DerivingPath, Text)]
-collectInputDrvsFromRefs refPaths inputObjPaths drv = do
+collectInputDrvsFromRefs storeDir refPaths inputObjPaths drv = do
     maybeInputDrvs <- forM (Set.toList refPaths) $ \refPath -> do
         let inSelf = Derivation.existsOutput refPath drv
         let inDirectInputs = Map.lookup refPath inputObjPaths
@@ -140,11 +142,40 @@ collectInputDrvsFromRefs refPaths inputObjPaths drv = do
                 pure Nothing
             (False, Just inputDrv) -> pure $ Just inputDrv
             (False, Nothing) -> do
-                let sop = StoreObjectPath.toText refPath
-                let errMsg = "deriver for store object " <> sop <> " doesn't exist"
-                throwError $ appError errMsg
+                -- Some references are propagated inputs, which can't be
+                -- directly found in the current derivation's inputs.
+                res <- queryDerivationAndOutputByObjPath storeDir refPath
+                pure $ Just res
 
     pure $ catMaybes maybeInputDrvs
+
+queryDerivationAndOutputByObjPath
+    :: (CapDerivation m)
+    => FilePath -> StoreObjectPath -> CurrentT m (DerivingPath, Text)
+queryDerivationAndOutputByObjPath storeDir objPath = do
+    maybeDrvPath <- do
+        let errMsg = "could not query deriver for " <> StoreObjectPath.toText objPath
+        lift $ withErrContext errMsg $ CapDerivation.queryDeriver storeDir objPath
+
+    drvPath <- case maybeDrvPath of
+        Just drvPath -> pure drvPath
+        Nothing -> do
+            let sop = StoreObjectPath.toText objPath
+            let errMsg = "deriver for store object " <> sop <> " doesn't exist"
+            throwError $ appError errMsg
+
+    drv <- ensureDerivation drvPath (CapDerivation.loadDerivation storeDir)
+    outName <- do
+        let res = find (\(_, out) -> (out ^. #path == objPath)) (Map.toList (drv ^. #outputs))
+        case res of
+            Just (outName, _) -> pure outName
+            Nothing -> do
+                let dp = DerivingPath.toText drvPath
+                let sop = StoreObjectPath.toText objPath
+                let errMsg = "derivation " <> dp <> " doesn't output " <> sop
+                throwError $ appError errMsg
+
+    pure (drvPath, outName)
 
 resolveDrvInputObjPaths
     :: (CapDerivation m)
