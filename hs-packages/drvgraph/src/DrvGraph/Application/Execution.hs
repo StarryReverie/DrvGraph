@@ -37,9 +37,6 @@ instance CapDerivation App where
     loadDerivation :: FilePath -> DerivingPath -> AppExceptT App Derivation
     loadDerivation = CapDerivationImpl.loadDerivationImpl
 
-    queryDeriver :: FilePath -> StoreObjectPath -> AppExceptT App (Maybe DerivingPath)
-    queryDeriver = CapDerivationImpl.queryDeriverImpl
-
 instance CapStoreObject App where
     queryLocalStoreObject :: FilePath -> StoreObjectPath -> AppExceptT App Bool
     queryLocalStoreObject = CapStoreObjectImpl.queryLocalStoreObjectImpl

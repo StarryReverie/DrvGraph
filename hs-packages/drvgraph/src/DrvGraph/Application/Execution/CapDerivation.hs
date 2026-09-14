@@ -1,27 +1,21 @@
 module DrvGraph.Application.Execution.CapDerivation
     ( loadDerivationImpl
-    , queryDeriverImpl
     ) where
 
 import Control.Exception (IOException, try)
 import Control.Monad.Except (throwError)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.ByteString qualified as Bytes
-import Data.List qualified as List
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextE
 import System.FilePath ((</>))
-import System.FilePath qualified as FP
-import System.Process qualified as Process
 import Text.Megaparsec qualified as MP
 
-import DrvGraph.Core.Error (AppExceptT, appError, exceptionToAppError, liftErr, withErrContext)
+import DrvGraph.Core.Error (AppExceptT, appError, exceptionToAppError, withErrContext)
 import DrvGraph.Core.Model.Derivation (Derivation)
 import DrvGraph.Core.Model.Derivation qualified as Derivation
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
-import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
-import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
 loadDerivationImpl
     :: (MonadIO m)
@@ -42,23 +36,3 @@ loadDerivationImpl storeDir drvPath = do
         case MP.runParser Derivation.parse "" content of
             Left err -> throwError $ appError . Text.pack . MP.errorBundlePretty $ err
             Right drv -> pure drv
-
-queryDeriverImpl
-    :: (MonadIO m)
-    => FilePath -> StoreObjectPath -> AppExceptT m (Maybe DerivingPath)
-queryDeriverImpl storeDir objPath = do
-    let path = storeDir </> StoreObjectPath.toFilePath objPath
-
-    output <- withErrContext ("nix-store command failed for deriver query of " <> Text.pack path) $ do
-        let args = ["--query", "--deriver", path]
-        outputRes <- liftIO $ try (Process.readProcess "nix-store" args "")
-        case outputRes of
-            Left (ex :: IOException) -> throwError $ exceptionToAppError ex
-            Right output -> pure output
-
-    withErrContext ("got invalid result of deriver query of " <> Text.pack path) $ do
-        if "unknown-deriver" `List.isPrefixOf` output
-            then pure Nothing
-            else do
-                let raw = Text.pack $ FP.takeFileName output
-                liftErr $ Just <$> DerivingPath.fromText raw

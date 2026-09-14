@@ -22,7 +22,7 @@ import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 import Test.Tasty.HUnit (assertBool, (@?=))
 
-import DrvGraph.Core.Capability.CapDerivation (CapDerivation (loadDerivation, queryDeriver))
+import DrvGraph.Core.Capability.CapDerivation (CapDerivation (loadDerivation))
 import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (queryLocalStoreObject, queryRemoteStoreObject), NarInfo (..))
 import DrvGraph.Core.Error (AppEither, AppExceptT, appError)
 import DrvGraph.Core.Model.DepGraph (DepGraph (..), DrvNode (..), ObjNode (..))
@@ -57,9 +57,6 @@ instance CapDerivation (Reader TestEnv) where
         case Map.lookup drvPath derivations of
             Just drv -> pure drv
             Nothing -> throwError $ appError "derivation not found in test environment"
-
-    queryDeriver :: FilePath -> StoreObjectPath -> AppExceptT (Reader TestEnv) (Maybe DerivingPath)
-    queryDeriver _ _ = pure Nothing
 
 instance CapStoreObject (Reader TestEnv) where
     queryLocalStoreObject :: FilePath -> StoreObjectPath -> AppExceptT (Reader TestEnv) Bool
