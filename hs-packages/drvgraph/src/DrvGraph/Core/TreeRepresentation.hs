@@ -1,12 +1,13 @@
 module DrvGraph.Core.TreeRepresentation
     ( StoreObjectTree (..)
     , DerivationTree (..)
+    , TreeRepresentationOptions (..)
+    , defaultOptions
     , depGraphToTreeRepresentation
     ) where
 
-import Control.Applicative (empty)
 import Control.Monad.State.Strict (State, evalState, gets, modify)
-import Control.Monad.Trans.Maybe (MaybeT (..))
+import Data.Maybe qualified as Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Optics ((%~), (^.))
@@ -49,8 +50,15 @@ data DerivationTree
         }
     deriving (Eq, Show)
 
+data TreeRepresentationOptions = TreeRepresentationOptions
+    { skipExisted :: Bool
+    , skipVisited :: Bool
+    }
+    deriving (Eq, Show)
+
 makeFieldLabelsNoPrefix ''StoreObjectTree
 makeFieldLabelsNoPrefix ''DerivationTree
+makeFieldLabelsNoPrefix ''TreeRepresentationOptions
 
 data ToDisplayTreeState = ToDisplayTreeState
     { visitedObjPaths :: Set StoreObjectPath
@@ -59,10 +67,24 @@ data ToDisplayTreeState = ToDisplayTreeState
 
 makeFieldLabelsNoPrefix ''ToDisplayTreeState
 
+-- | Sensible default options for making a tree representation of the
+-- derivation graph.
+defaultOptions :: TreeRepresentationOptions
+defaultOptions =
+    TreeRepresentationOptions
+        { skipExisted = True
+        , skipVisited = True
+        }
+
 -- | Convert a traversal from a @StoreObjectPath@ in a @DepGraph@ to a tree
 -- structure for displaying.
-depGraphToTreeRepresentation :: DepGraph -> StoreObjectPath -> Maybe StoreObjectTree
-depGraphToTreeRepresentation graph path = evalState (runMaybeT (recurseStoreObject graph path)) initial
+depGraphToTreeRepresentation
+    :: TreeRepresentationOptions
+    -> DepGraph
+    -> StoreObjectPath
+    -> Maybe StoreObjectTree
+depGraphToTreeRepresentation opts graph path =
+    evalState (recurseStoreObject opts True graph path) initial
   where
     initial =
         ToDisplayTreeState
@@ -70,47 +92,68 @@ depGraphToTreeRepresentation graph path = evalState (runMaybeT (recurseStoreObje
             , visitedDrvPaths = Set.empty
             }
 
-recurseStoreObject :: DepGraph -> StoreObjectPath -> MaybeT (State ToDisplayTreeState) StoreObjectTree
-recurseStoreObject graph objPath = do
+recurseStoreObject
+    :: TreeRepresentationOptions
+    -> Bool
+    -> DepGraph
+    -> StoreObjectPath
+    -> State ToDisplayTreeState (Maybe StoreObjectTree)
+recurseStoreObject opts isTop graph objPath = do
     isVisited <- gets $ Set.member objPath . (^. #visitedObjPaths)
     if isVisited
-        then pure StObjTreeVisited{objPath}
+        then
+            if opts ^. #skipVisited
+                then pure Nothing
+                else pure $ Just StObjTreeVisited{objPath}
         else do
             modify $ #visitedObjPaths %~ Set.insert objPath
 
-            objNode <- ofMaybe $ DepGraph.lookupObjNode objPath graph
-            case objNode of
-                ObjExisted -> pure StObjTreeExisted{objPath}
-                ObjUnsynced{refPaths} -> recurseForUnsynced refPaths
-                ObjUnbuilt{drvPath} -> recurseForUnbuilt drvPath
+            case DepGraph.lookupObjNode objPath graph of
+                Just ObjExisted
+                    | not isTop && opts ^. #skipExisted -> pure Nothing
+                    | otherwise -> pure $ Just StObjTreeExisted{objPath}
+                Just ObjUnsynced{refPaths} -> recurseForUnsynced refPaths
+                Just ObjUnbuilt{drvPath} -> recurseForUnbuilt drvPath
+                Nothing -> pure Nothing
   where
     recurseForUnsynced refPaths = do
-        refChildren <- traverse (recurseStoreObject graph) (Set.toList refPaths)
-        pure StObjTreeUnsynced{objPath, refChildren}
+        refChildrenMaybes <- traverse (recurseStoreObject opts False graph) (Set.toList refPaths)
+        let refChildren = Maybe.catMaybes refChildrenMaybes
+        pure $ Just StObjTreeUnsynced{objPath, refChildren}
 
-    recurseForUnbuilt drvPath = do
-        (drvNode, indegree) <- ofMaybe $ DepGraph.lookupDrvNodeAndIndegree drvPath graph
-        if indegree > 1
-            then do
-                drvChild <- recurseDerivation graph drvPath
-                pure StObjTreeUnbuilt{objPath, drvChild}
-            else do
-                let refPaths = Set.toList (drvNode ^. #inputObjPaths)
-                objChildren <- traverse (recurseStoreObject graph) refPaths
-                pure StObjTreeUnbuiltWithDrv{objPath, drvPath, objChildren}
+    recurseForUnbuilt :: DerivingPath -> State ToDisplayTreeState (Maybe StoreObjectTree)
+    recurseForUnbuilt drvPath =
+        case DepGraph.lookupDrvNodeAndIndegree drvPath graph of
+            Just (drvNode, indegree)
+                | indegree > 1 -> do
+                    drvChild <- recurseDerivation opts graph drvPath
+                    pure $ (\child -> StObjTreeUnbuilt{objPath, drvChild = child}) <$> drvChild
+                | otherwise -> do
+                    let refPaths = Set.toList (drvNode ^. #inputObjPaths)
+                    objChildrenMaybes <- traverse (recurseStoreObject opts False graph) refPaths
+                    let objChildren = Maybe.catMaybes objChildrenMaybes
+                    pure $ Just StObjTreeUnbuiltWithDrv{objPath, drvPath, objChildren}
+            Nothing -> pure Nothing
 
-recurseDerivation :: DepGraph -> DerivingPath -> MaybeT (State ToDisplayTreeState) DerivationTree
-recurseDerivation graph drvPath = do
+recurseDerivation
+    :: TreeRepresentationOptions
+    -> DepGraph
+    -> DerivingPath
+    -> (State ToDisplayTreeState) (Maybe DerivationTree)
+recurseDerivation opts graph drvPath = do
     isVisited <- gets $ Set.member drvPath . (^. #visitedDrvPaths)
     if isVisited
-        then pure DrvTreeVisited{drvPath}
+        then
+            if opts ^. #skipVisited
+                then pure Nothing
+                else pure $ Just DrvTreeVisited{drvPath}
         else do
             modify $ #visitedDrvPaths %~ Set.insert drvPath
 
-            drvNode <- ofMaybe $ DepGraph.lookupDrvNode drvPath graph
-            let refPaths = Set.toList (drvNode ^. #inputObjPaths)
-            objChildren <- traverse (recurseStoreObject graph) refPaths
-            pure DrvTreeUnbuilt{drvPath, objChildren}
-
-ofMaybe :: (Monad m) => Maybe a -> MaybeT m a
-ofMaybe = maybe empty pure
+            case DepGraph.lookupDrvNode drvPath graph of
+                Just drvNode -> do
+                    let refPaths = Set.toList (drvNode ^. #inputObjPaths)
+                    maybeObjChildren <- traverse (recurseStoreObject opts False graph) refPaths
+                    let objChildren = Maybe.catMaybes maybeObjChildren
+                    pure $ Just DrvTreeUnbuilt{drvPath, objChildren}
+                Nothing -> pure Nothing

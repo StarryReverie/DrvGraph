@@ -15,7 +15,7 @@ import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
-import DrvGraph.Core.TreeRepresentation (DerivationTree (..), StoreObjectTree (..), depGraphToTreeRepresentation)
+import DrvGraph.Core.TreeRepresentation (DerivationTree (..), StoreObjectTree (..), TreeRepresentationOptions (..), depGraphToTreeRepresentation)
 
 fakeHash :: Int -> Text
 fakeHash i = Text.replicate 32 (Text.singleton (alphaNums !! i))
@@ -51,6 +51,13 @@ applyObjNodeInsertions pairs graph = foldr (uncurry DepGraph.insertObjNode) grap
 applyDrvNodeInsertions :: [(DerivingPath, DrvNode)] -> DepGraph -> DepGraph
 applyDrvNodeInsertions pairs graph = foldr (uncurry DepGraph.insertDrvNode) graph pairs
 
+testDefaultOptions :: TreeRepresentationOptions
+testDefaultOptions =
+    TreeRepresentationOptions
+        { skipExisted = False
+        , skipVisited = False
+        }
+
 unit_toDisplayTreeAllBranches :: IO ()
 unit_toDisplayTreeAllBranches = do
     let graph =
@@ -70,7 +77,7 @@ unit_toDisplayTreeAllBranches = do
                     , (drvShared, DrvNode{inputObjPaths = Set.fromList [objC, objG]})
                     ]
 
-    let Just actual = depGraphToTreeRepresentation graph objRoot
+    let Just actual = depGraphToTreeRepresentation testDefaultOptions graph objRoot
 
     actual
         @?= StObjTreeUnbuiltWithDrv
@@ -115,7 +122,7 @@ unit_toDisplayTreeUnbuiltWithDrvLeaf = do
                     [ (drvO, DrvNode{inputObjPaths = Set.empty})
                     ]
 
-    let Just actual = depGraphToTreeRepresentation graph objR
+    let Just actual = depGraphToTreeRepresentation testDefaultOptions graph objR
 
     actual
         @?= StObjTreeUnsynced
