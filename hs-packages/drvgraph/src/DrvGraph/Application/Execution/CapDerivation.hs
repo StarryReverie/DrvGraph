@@ -7,9 +7,9 @@ import Control.Monad.Except (throwError)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.ByteString qualified as Bytes
 import Data.Text qualified as Text
-import Data.Text.Encoding qualified as TextE
+import Data.Text.Encoding qualified as TextEncoding
 import System.FilePath ((</>))
-import Text.Megaparsec qualified as MP
+import Text.Megaparsec qualified as Megaparsec
 
 import DrvGraph.Core.Error (AppExceptT, appError, exceptionToAppError, withErrContext)
 import DrvGraph.Core.Model.Derivation (Derivation)
@@ -28,11 +28,11 @@ loadDerivationImpl storeDir drvPath = do
         bytes <- case bytesRes of
             Left (ex :: IOException) -> throwError $ exceptionToAppError ex
             Right bytes -> pure bytes
-        case TextE.decodeUtf8' bytes of
+        case TextEncoding.decodeUtf8' bytes of
             Left ex -> throwError $ exceptionToAppError ex
             Right content -> pure content
 
     withErrContext ("could not parse content of file " <> Text.pack path) $ do
-        case MP.runParser Derivation.parse "" content of
-            Left err -> throwError $ appError . Text.pack . MP.errorBundlePretty $ err
+        case Megaparsec.runParser Derivation.parse "" content of
+            Left err -> throwError $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
             Right drv -> pure drv

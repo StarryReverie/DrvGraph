@@ -6,9 +6,9 @@ module DrvGraph.Core.Model.DerivationTest
 import Data.FileEmbed qualified as Embed
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Data.Text.Encoding qualified as TE
+import Data.Text.Encoding qualified as TextEncoding
 import Test.Tasty.HUnit ((@?=))
-import Text.Megaparsec as MP
+import Text.Megaparsec as Megaparsec
 
 import DrvGraph.Core.Model.Derivation (Derivation (..), DerivationOutput (..), OutputHash (..))
 import DrvGraph.Core.Model.Derivation qualified as Derivation
@@ -17,9 +17,9 @@ import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
 unit_parseHello :: IO ()
 unit_parseHello = do
-    let input = TE.decodeUtf8 $(Embed.embedFileRelative "data/vlp8xby1jjmif5hdsck5vfdq4fljpvli-hello-2.12.3.drv")
+    let input = TextEncoding.decodeUtf8 $(Embed.embedFileRelative "data/vlp8xby1jjmif5hdsck5vfdq4fljpvli-hello-2.12.3.drv")
 
-    let Right actual = MP.runParser Derivation.parse "" input
+    let Right actual = Megaparsec.runParser Derivation.parse "" input
 
     let expected =
             Derivation
@@ -74,9 +74,9 @@ unit_parseHello = do
 
 unit_parseHelloSource :: IO ()
 unit_parseHelloSource = do
-    let input = TE.decodeUtf8 $(Embed.embedFileRelative "data/fmyr3q5fikw8g50g1xf2vgs10hisxck9-hello-2.12.3.tar.gz.drv")
+    let input = TextEncoding.decodeUtf8 $(Embed.embedFileRelative "data/fmyr3q5fikw8g50g1xf2vgs10hisxck9-hello-2.12.3.tar.gz.drv")
 
-    let Right actual = MP.runParser Derivation.parse "" input
+    let Right actual = Megaparsec.runParser Derivation.parse "" input
 
     let expected =
             Derivation

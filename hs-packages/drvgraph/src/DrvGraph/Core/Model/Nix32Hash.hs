@@ -13,7 +13,7 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
 import Text.Megaparsec (Parsec)
-import Text.Megaparsec qualified as MP
+import Text.Megaparsec qualified as Megaparsec
 
 import DrvGraph.Core.Error (AppEither, appError, unwrapRight, withErrContext)
 
@@ -34,7 +34,7 @@ type Parser = Parsec Void Text
 -- | Parse a @Nix32Hash@.
 parse :: Parser Nix32Hash
 parse = do
-    chars <- replicateM 32 (MP.satisfy charPred)
+    chars <- replicateM 32 (Megaparsec.satisfy charPred)
     pure $ Nix32HashInternal (Text.pack chars)
   where
     charPred c = Char.isDigit c || (Char.isAsciiLower c && c `notElem` ['e', 'o', 't', 'u'])
@@ -42,8 +42,8 @@ parse = do
 -- | Try to convert a @Text@ to @Nix32Hash@.
 fromText :: Text -> AppEither Nix32Hash
 fromText raw = withErrContext "could not parse Nix32 hash" $ do
-    case MP.runParser (parse <* MP.eof) "" raw of
-        Left err -> Left $ appError . Text.pack . MP.errorBundlePretty $ err
+    case Megaparsec.runParser (parse <* Megaparsec.eof) "" raw of
+        Left err -> Left $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
         Right hash -> Right hash
 
 -- | Convert a @Text@ to @Nix32Hash@ or error

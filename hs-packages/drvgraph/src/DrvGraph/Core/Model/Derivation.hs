@@ -15,10 +15,10 @@ import Data.Text qualified as Text
 import Data.Void (Void)
 import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
-import System.FilePath qualified as FP
+import System.FilePath qualified as Path
 import Text.Megaparsec (Parsec, (<?>))
-import Text.Megaparsec qualified as MP
-import Text.Megaparsec.Char qualified as MPC
+import Text.Megaparsec qualified as Megaparsec
+import Text.Megaparsec.Char qualified as MegaparsecChar
 
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
@@ -62,19 +62,19 @@ parse :: Parser Derivation
 parse = parseDerivation
 
 parseDerivation :: Parser Derivation
-parseDerivation = MP.between (MPC.string "Derive(") (MPC.char ')') $ do
+parseDerivation = Megaparsec.between (MegaparsecChar.string "Derive(") (MegaparsecChar.char ')') $ do
     outputs <- parseManyDerivationOutputs <?> "derivation outputs"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     inputDrvs <- parseManyInputDrvs <?> "derivation input derivations"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     inputSrcs <- makeSetParser parseStoreObjectPath <?> "derivation input sources"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     platform <- parseString <?> "derivation platform"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     builder <- parseString <?> "derivation builder"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     args <- makeListParser parseString <?> "derivation arguments"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     envs <- makeMapParser (makePairParaser parseString parseString) <?> "derivation environments"
     pure Derivation{inputDrvs, inputSrcs, outputs, platform, builder, args, envs}
 
@@ -82,14 +82,14 @@ parseManyDerivationOutputs :: Parser (Map Text DerivationOutput)
 parseManyDerivationOutputs = makeMapParser parseDerivationOutput
 
 parseDerivationOutput :: Parser (Text, DerivationOutput)
-parseDerivationOutput = MP.between (MPC.char '(') (MPC.char ')') $ do
+parseDerivationOutput = Megaparsec.between (MegaparsecChar.char '(') (MegaparsecChar.char ')') $ do
     outName <- parseString <?> "output name"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     path <- parseStoreObjectPath <?> "output path"
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     hash <- do
         algo <- parseString <?> "output hash algorithm"
-        _ <- MPC.char ','
+        _ <- MegaparsecChar.char ','
         val <- parseString <?> "output hash"
         if Text.null algo && Text.null val
             then pure Nothing
@@ -105,20 +105,24 @@ parseInputDrv = makePairParaser parseDerivingPath (makeSetParser parseString)
 
 parseDerivingPath :: Parser DerivingPath
 parseDerivingPath = do
-    filePath <- FP.takeFileName <$> parseFilePath
+    filePath <- Path.takeFileName <$> parseFilePath
     case DerivingPath.fromText . Text.pack $ filePath of
         Left _ -> fail "deriving path is invalid"
         Right dp -> pure dp
 
 parseStoreObjectPath :: Parser StoreObjectPath
 parseStoreObjectPath = do
-    filePath <- FP.takeFileName <$> parseFilePath
+    filePath <- Path.takeFileName <$> parseFilePath
     case StoreObjectPath.fromText . Text.pack $ filePath of
         Left _ -> fail "store object path is invalid"
         Right dp -> pure dp
 
 makeListParser :: Parser a -> Parser [a]
-makeListParser p = MP.between (MPC.char '[') (MPC.char ']') (p `MP.sepBy` MPC.char ',')
+makeListParser p =
+    Megaparsec.between
+        (MegaparsecChar.char '[')
+        (MegaparsecChar.char ']')
+        (p `Megaparsec.sepBy` MegaparsecChar.char ',')
 
 makeMapParser :: (Ord a) => Parser (a, b) -> Parser (Map a b)
 makeMapParser p = Map.fromList <$> makeListParser p
@@ -127,22 +131,22 @@ makeSetParser :: (Ord a) => Parser a -> Parser (Set a)
 makeSetParser p = Set.fromList <$> makeListParser p
 
 makePairParaser :: Parser a -> Parser b -> Parser (a, b)
-makePairParaser p1 p2 = MP.between (MPC.char '(') (MPC.char ')') $ do
+makePairParaser p1 p2 = Megaparsec.between (MegaparsecChar.char '(') (MegaparsecChar.char ')') $ do
     r1 <- p1
-    _ <- MPC.char ','
+    _ <- MegaparsecChar.char ','
     r2 <- p2
     pure (r1, r2)
 
 parseString :: Parser Text
-parseString = MPC.char '\"' >> loop
+parseString = MegaparsecChar.char '\"' >> loop
   where
     loop = do
-        normalText <- MP.takeWhileP Nothing (not . isQuoteOrBackslash)
-        quoteOrBackslash <- MP.satisfy isQuoteOrBackslash
+        normalText <- Megaparsec.takeWhileP Nothing (not . isQuoteOrBackslash)
+        quoteOrBackslash <- Megaparsec.satisfy isQuoteOrBackslash
         remaining <- case quoteOrBackslash of
             '\"' -> pure ""
             _ -> do
-                nextChar <- MP.anySingle
+                nextChar <- Megaparsec.anySingle
                 unescaped <- case nextChar of
                     'n' -> pure '\n'
                     't' -> pure '\t'

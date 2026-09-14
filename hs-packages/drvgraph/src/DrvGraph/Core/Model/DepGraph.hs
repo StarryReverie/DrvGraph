@@ -13,7 +13,7 @@ module DrvGraph.Core.Model.DepGraph
 import Data.Function ((&))
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe qualified as Maybe
 import Data.Set (Set)
 import Optics ((%~), (^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
@@ -89,5 +89,5 @@ lookupDrvNode path = Map.lookup path . (^. #drvNodes)
 lookupDrvNodeAndIndegree :: DerivingPath -> DepGraph -> Maybe (DrvNode, Int)
 lookupDrvNodeAndIndegree path graph = do
     drvNode <- Map.lookup path (graph ^. #drvNodes)
-    let indegree = fromMaybe 0 (Map.lookup path (graph ^. #drvNodeIndegrees))
+    let indegree = Maybe.fromMaybe 0 (Map.lookup path (graph ^. #drvNodeIndegrees))
     pure (drvNode, indegree)

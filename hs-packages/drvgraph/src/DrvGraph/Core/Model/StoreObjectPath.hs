@@ -13,8 +13,8 @@ import Data.Void (Void)
 import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 import Text.Megaparsec (Parsec, (<?>))
-import Text.Megaparsec qualified as MP
-import Text.Megaparsec.Char qualified as MPC
+import Text.Megaparsec qualified as Megaparsec
+import Text.Megaparsec.Char qualified as MegaparsecChar
 
 import DrvGraph.Core.Error (AppEither, appError, unwrapRight, withErrContext)
 import DrvGraph.Core.Model.Nix32Hash (Nix32Hash)
@@ -35,15 +35,15 @@ type Parser = Parsec Void Text
 parse :: Parser StoreObjectPath
 parse = do
     hash <- Nix32Hash.parse <?> "store object path hash"
-    MPC.char '-'
-    name <- MP.takeWhileP Nothing (/= '/') <?> "store object path name"
+    MegaparsecChar.char '-'
+    name <- Megaparsec.takeWhileP Nothing (/= '/') <?> "store object path name"
     pure StoreObjectPath{hash, name}
 
 -- | Try to convert a @Text@ to a @StoreObjectPath@.
 fromText :: Text -> AppEither StoreObjectPath
 fromText raw = withErrContext "could not parse store object path" $ do
-    case MP.runParser parse "" raw of
-        Left err -> Left $ appError . Text.pack . MP.errorBundlePretty $ err
+    case Megaparsec.runParser parse "" raw of
+        Left err -> Left $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
         Right sop -> Right sop
 
 -- | Render a @StoreObjectPath@ datatype to a @Text@.

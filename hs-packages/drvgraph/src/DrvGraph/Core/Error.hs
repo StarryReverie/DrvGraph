@@ -16,8 +16,8 @@ import Control.Monad.Except (ExceptT, MonadError (throwError), withError)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Data.Text.Lazy qualified as TL
-import Data.Text.Lazy.Builder qualified as TB
+import Data.Text.Lazy qualified as LazyText
+import Data.Text.Lazy.Builder qualified as LazyTextBuilder
 
 -- | Application-wide error type for reporting a chain of error messages.
 newtype AppError = AppError (NonEmpty Text)
@@ -54,8 +54,8 @@ renderErr :: AppError -> Text
 renderErr (AppError (direct :| indirects)) = firstMsg <> otherMsg
   where
     firstMsg = "error:     " <> direct <> "\n"
-    otherMsg = TL.toStrict . TB.toLazyText $ builder
-    builder = foldMap (\e -> "caused by: " <> TB.fromText e <> "\n") indirects
+    otherMsg = LazyText.toStrict . LazyTextBuilder.toLazyText $ builder
+    builder = foldMap (\e -> "caused by: " <> LazyTextBuilder.fromText e <> "\n") indirects
 
 -- | Unwrap @Right@ or error on @Left@.
 unwrapRight :: AppEither a -> a

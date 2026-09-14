@@ -13,8 +13,8 @@ import Data.Void (Void)
 import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 import Text.Megaparsec (Parsec, (<?>))
-import Text.Megaparsec qualified as MP
-import Text.Megaparsec.Char qualified as MPC
+import Text.Megaparsec qualified as Megaparsec
+import Text.Megaparsec.Char qualified as MegaparsecChar
 
 import DrvGraph.Core.Error (AppEither, appError, unwrapRight, withErrContext)
 import DrvGraph.Core.Model.Nix32Hash (Nix32Hash)
@@ -35,17 +35,17 @@ type Parser = Parsec Void Text
 parse :: Parser DerivingPath
 parse = do
     hash <- Nix32Hash.parse <?> "deriving path hash"
-    MPC.char '-'
+    MegaparsecChar.char '-'
     name <-
-        Text.pack <$> MP.manyTill MP.anySingle (MPC.string ".drv")
+        Text.pack <$> Megaparsec.manyTill Megaparsec.anySingle (MegaparsecChar.string ".drv")
             <?> "deriving path name"
     pure DerivingPath{hash, name}
 
 -- | Try to convert a @Text@ to @DerivingPath@.
 fromText :: Text -> AppEither DerivingPath
 fromText raw = withErrContext "could not parse deriving path" $ do
-    case MP.runParser parse "" raw of
-        Left err -> Left $ appError . Text.pack . MP.errorBundlePretty $ err
+    case Megaparsec.runParser parse "" raw of
+        Left err -> Left $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
         Right dp -> Right dp
 
 -- | Render a @DerivingPath@ datatype to a @Text@.

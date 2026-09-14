@@ -11,18 +11,18 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader, asks)
 import Data.ByteString.Lazy qualified as LazyBytes
 import Data.List qualified as List
-import Data.Maybe (isJust)
+import Data.Maybe qualified as Maybe
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Data.Text.Encoding qualified as TextE
+import Data.Text.Encoding qualified as TextEncoding
 import Network.HTTP.Client (HttpException, Request (..))
 import Network.HTTP.Client qualified as Http
 import Network.HTTP.Types.Header qualified as HttpHeader
 import Network.HTTP.Types.Status qualified as HttpStatus
 import Network.URI (URI (..))
 import Optics ((^.))
-import System.Directory qualified as Dir
+import System.Directory qualified as Directory
 import System.FilePath ((</>))
 
 import DrvGraph.Application.Execution.Environment (AppEnvironment)
@@ -39,7 +39,7 @@ queryLocalStoreObjectImpl storeDir objPath = do
     let path = storeDir </> StoreObjectPath.toFilePath objPath
 
     withErrContext ("could not check existence of file " <> Text.pack path) $ do
-        res <- liftIO $ try (Dir.doesPathExist path)
+        res <- liftIO $ try (Directory.doesPathExist path)
         case res of
             Left (ex :: IOException) -> throwError $ exceptionToAppError ex
             Right exists -> pure exists
@@ -97,7 +97,7 @@ sendRequest uri request = do
         case Http.responseStatus response of
             HttpStatus.Status 200 _ -> do
                 let bytes = LazyBytes.toStrict $ Http.responseBody response
-                case TextE.decodeUtf8' bytes of
+                case TextEncoding.decodeUtf8' bytes of
                     Left ex -> throwError $ exceptionToAppError ex
                     Right content -> pure $ Just content
             HttpStatus.Status 403 _ -> pure Nothing
@@ -116,7 +116,7 @@ sendRequest uri request = do
 parseNarInfo :: Text -> AppEither NarInfo
 parseNarInfo raw = do
     let maybeReferences =
-            List.take 1 . List.filter isJust $
+            List.take 1 . List.filter Maybe.isJust $
                 Text.stripPrefix "References: " <$> Text.lines raw
 
     let referencesLine = case maybeReferences of
