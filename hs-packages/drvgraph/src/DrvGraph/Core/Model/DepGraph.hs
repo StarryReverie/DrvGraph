@@ -15,7 +15,6 @@ import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
-import Data.Text (Text)
 import Optics ((%~), (^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 
@@ -32,21 +31,20 @@ data DepGraph = DepGraph
     }
     deriving (Eq, Show)
 
--- | State of a store object at @dgObjNodes@'s key.
+-- | State of a store object.
 data ObjNode
     = ObjExisted
     | ObjUnsynced
-        { drvPath :: DerivingPath
-        , refPaths :: Set StoreObjectPath
+        { refPaths :: Set StoreObjectPath
         }
     | ObjUnbuilt
         { drvPath :: DerivingPath
         }
     deriving (Eq, Show)
 
--- | Inputs of the derivation at @dgDrvNodes@'s key.
+-- | Inputs of the derivation.
 newtype DrvNode = DrvNode
-    { inputObjPaths :: Map StoreObjectPath (DerivingPath, Text)
+    { inputObjPaths :: Set StoreObjectPath
     }
     deriving (Eq, Show)
 
@@ -72,7 +70,7 @@ insertObjNode path obj graph =
   where
     updateIndegree = case obj of
         ObjExisted -> id
-        ObjUnsynced{drvPath} -> Map.insertWith (+) drvPath 1
+        ObjUnsynced{} -> id
         ObjUnbuilt{drvPath} -> Map.insertWith (+) drvPath 1
 
 -- | Insert a @DrvNode@ with the given @DerivingPath@.

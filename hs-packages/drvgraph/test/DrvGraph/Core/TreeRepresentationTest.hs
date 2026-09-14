@@ -4,7 +4,6 @@ module DrvGraph.Core.TreeRepresentationTest
     ) where
 
 import Data.Function ((&))
-import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -40,15 +39,11 @@ objG = storeObjectPathOf 6 "g"
 objR = storeObjectPathOf 7 "r"
 objO = storeObjectPathOf 8 "o"
 
-drvRoot, drvA, drvShared, drvE, drvC, drvG, drvR, drvO :: DerivingPath
+drvRoot, drvA, drvShared, drvO :: DerivingPath
 drvRoot = drvPathOf 0 "root"
 drvA = drvPathOf 1 "a"
 drvShared = drvPathOf 2 "shared"
-drvE = drvPathOf 3 "e"
-drvC = drvPathOf 4 "c"
-drvG = drvPathOf 5 "g"
-drvR = drvPathOf 6 "r"
-drvO = drvPathOf 7 "o"
+drvO = drvPathOf 6 "o"
 
 applyObjNodeInsertions :: [(StoreObjectPath, ObjNode)] -> DepGraph -> DepGraph
 applyObjNodeInsertions pairs graph = foldr (uncurry DepGraph.insertObjNode) graph pairs
@@ -62,17 +57,17 @@ unit_toDisplayTreeAllBranches = do
             DepGraph.empty
                 & applyObjNodeInsertions
                     [ (objRoot, ObjUnbuilt{drvPath = drvRoot})
-                    , (objA, ObjUnsynced{drvPath = drvA, refPaths = Set.singleton objC})
+                    , (objA, ObjUnsynced{refPaths = Set.singleton objC})
                     , (objB, ObjUnbuilt{drvPath = drvShared})
                     , (objC, ObjExisted)
                     , (objD, ObjUnbuilt{drvPath = drvShared})
-                    , (objE, ObjUnsynced{drvPath = drvE, refPaths = Set.empty})
+                    , (objE, ObjUnsynced{refPaths = Set.empty})
                     , (objG, ObjExisted)
                     ]
                 & applyDrvNodeInsertions
-                    [ (drvRoot, DrvNode{inputObjPaths = Map.fromList [(objA, (drvA, "out")), (objB, (drvShared, "out")), (objD, (drvShared, "dev")), (objE, (drvE, "out"))]})
-                    , (drvA, DrvNode{inputObjPaths = Map.empty})
-                    , (drvShared, DrvNode{inputObjPaths = Map.fromList [(objC, (drvC, "out")), (objG, (drvG, "out"))]})
+                    [ (drvRoot, DrvNode{inputObjPaths = Set.fromList [objA, objB, objD, objE]})
+                    , (drvA, DrvNode{inputObjPaths = Set.empty})
+                    , (drvShared, DrvNode{inputObjPaths = Set.fromList [objC, objG]})
                     ]
 
     let Just actual = depGraphToTreeRepresentation graph objRoot
@@ -113,11 +108,11 @@ unit_toDisplayTreeUnbuiltWithDrvLeaf = do
     let graph =
             DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objR, ObjUnsynced{drvPath = drvR, refPaths = Set.singleton objO})
+                    [ (objR, ObjUnsynced{refPaths = Set.singleton objO})
                     , (objO, ObjUnbuilt{drvPath = drvO})
                     ]
                 & applyDrvNodeInsertions
-                    [ (drvO, DrvNode{inputObjPaths = Map.empty})
+                    [ (drvO, DrvNode{inputObjPaths = Set.empty})
                     ]
 
     let Just actual = depGraphToTreeRepresentation graph objR

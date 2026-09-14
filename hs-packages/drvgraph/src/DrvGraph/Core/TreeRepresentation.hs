@@ -7,7 +7,6 @@ module DrvGraph.Core.TreeRepresentation
 import Control.Applicative (empty)
 import Control.Monad.State.Strict (State, evalState, gets, modify)
 import Control.Monad.Trans.Maybe (MaybeT (..))
-import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Optics ((%~), (^.))
@@ -96,7 +95,7 @@ recurseStoreObject graph objPath = do
                 drvChild <- recurseDerivation graph drvPath
                 pure StObjTreeUnbuilt{objPath, drvChild}
             else do
-                let refPaths = Map.keys (drvNode ^. #inputObjPaths)
+                let refPaths = Set.toList (drvNode ^. #inputObjPaths)
                 objChildren <- traverse (recurseStoreObject graph) refPaths
                 pure StObjTreeUnbuiltWithDrv{objPath, drvPath, objChildren}
 
@@ -109,7 +108,7 @@ recurseDerivation graph drvPath = do
             modify $ #visitedDrvPaths %~ Set.insert drvPath
 
             drvNode <- ofMaybe $ DepGraph.lookupDrvNode drvPath graph
-            let refPaths = Map.keys (drvNode ^. #inputObjPaths)
+            let refPaths = Set.toList (drvNode ^. #inputObjPaths)
             objChildren <- traverse (recurseStoreObject graph) refPaths
             pure DrvTreeUnbuilt{drvPath, objChildren}
 

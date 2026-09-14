@@ -1,8 +1,8 @@
 module DrvGraph.Core.WalkTest
-    ( unit_walkLocalExisted
-    , unit_walkUnsyncedThenLocalLeaf
+    ( unit_walkUnsyncedThenLocalLeaf
     , unit_walkUnbuiltFallback
-    , unit_walkDiamondVisitsOnce
+    , unit_walkUnsyncedDiamond
+    , unit_walkMultiOutputs
     , unit_walkMissingOutputNameError
     , unit_walkUnsyncedRefWithoutDeriverError
     , unit_walkInputDrvMissingOutputNameError
@@ -93,15 +93,16 @@ drvPathB = drvPathOf 1 "b"
 drvPathC = drvPathOf 2 "c"
 drvPathD = drvPathOf 3 "d"
 
-objPathA, objPathB, objPathC, objPathD, objPathX :: StoreObjectPath
+objPathA, objPathB, objPathBDev, objPathC, objPathD, objPathX :: StoreObjectPath
 objPathA = storeObjectPathOf 4 "a"
 objPathB = storeObjectPathOf 5 "b"
-objPathC = storeObjectPathOf 6 "c"
-objPathD = storeObjectPathOf 7 "d"
-objPathX = storeObjectPathOf 8 "x"
+objPathBDev = storeObjectPathOf 6 "b-dev"
+objPathC = storeObjectPathOf 7 "c"
+objPathD = storeObjectPathOf 8 "d"
+objPathX = storeObjectPathOf 9 "x"
 
 mkInputs :: [(DerivingPath, Text)] -> Map DerivingPath (Set Text)
-mkInputs = Map.fromList . fmap (fmap Set.singleton)
+mkInputs = foldl' (\mp (dp, out) -> Map.insertWith Set.union dp (Set.singleton out) mp) Map.empty
 
 mkDerivation
     :: Map DerivingPath (Set Text)
@@ -126,24 +127,6 @@ applyObjNodeInsertions pairs graph = foldr (uncurry DepGraph.insertObjNode) grap
 applyDrvNodeInsertions :: [(DerivingPath, DrvNode)] -> DepGraph -> DepGraph
 applyDrvNodeInsertions pairs graph = foldr (uncurry DepGraph.insertDrvNode) graph pairs
 
-unit_walkLocalExisted :: IO ()
-unit_walkLocalExisted = do
-    let drvA = mkDerivation Map.empty (Map.fromList [("out", objPathA)])
-    let env =
-            defaultEnv
-                { derivations = Map.fromList [(drvPathA, drvA)]
-                , localObjects = Set.singleton objPathA
-                }
-
-    let Right (depGraph, objPath) = runWalk env drvPathA "out"
-
-    depGraph
-        @?= ( DepGraph.empty
-                & applyObjNodeInsertions [(objPathA, ObjExisted)]
-                & applyDrvNodeInsertions [(drvPathA, DrvNode{inputObjPaths = Map.empty})]
-            )
-    objPath @?= objPathA
-
 unit_walkUnsyncedThenLocalLeaf :: IO ()
 unit_walkUnsyncedThenLocalLeaf = do
     let drvA = mkDerivation (mkInputs [(drvPathB, "out")]) (Map.fromList [("out", objPathA)])
@@ -161,12 +144,8 @@ unit_walkUnsyncedThenLocalLeaf = do
     depGraph
         @?= ( DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objPathA, ObjUnsynced{drvPath = drvPathA, refPaths = Set.fromList [objPathB]})
+                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB]})
                     , (objPathB, ObjExisted)
-                    ]
-                & applyDrvNodeInsertions
-                    [ (drvPathA, DrvNode{inputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
-                    , (drvPathB, DrvNode{inputObjPaths = Map.empty})
                     ]
             )
     objPath @?= objPathA
@@ -189,14 +168,14 @@ unit_walkUnbuiltFallback = do
                     , (objPathB, ObjUnbuilt{drvPath = drvPathB})
                     ]
                 & applyDrvNodeInsertions
-                    [ (drvPathA, DrvNode{inputObjPaths = Map.fromList [(objPathB, (drvPathB, "out"))]})
-                    , (drvPathB, DrvNode{inputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{inputObjPaths = Set.fromList [objPathB]})
+                    , (drvPathB, DrvNode{inputObjPaths = Set.empty})
                     ]
             )
     objPath @?= objPathA
 
-unit_walkDiamondVisitsOnce :: IO ()
-unit_walkDiamondVisitsOnce = do
+unit_walkUnsyncedDiamond :: IO ()
+unit_walkUnsyncedDiamond = do
     let drvA = mkDerivation (mkInputs [(drvPathB, "out"), (drvPathC, "out")]) (Map.fromList [("out", objPathA)])
     let drvB = mkDerivation (mkInputs [(drvPathD, "out")]) (Map.fromList [("out", objPathB)])
     let drvC = mkDerivation (mkInputs [(drvPathD, "out")]) (Map.fromList [("out", objPathC)])
@@ -204,10 +183,11 @@ unit_walkDiamondVisitsOnce = do
     let narA = NarInfo{narInfoRefs = Set.fromList [objPathB, objPathC]}
     let narB = NarInfo{narInfoRefs = Set.fromList [objPathD]}
     let narC = NarInfo{narInfoRefs = Set.fromList [objPathD]}
+    let narD = NarInfo{narInfoRefs = Set.fromList []}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC), (drvPathD, drvD)]
-                , remoteNars = Map.fromList [(objPathA, narA), (objPathB, narB), (objPathC, narC)]
+                , remoteNars = Map.fromList [(objPathA, narA), (objPathB, narB), (objPathC, narC), (objPathD, narD)]
                 }
 
     let Right (depGraph, objPath) = runWalk env drvPathA "out"
@@ -215,16 +195,39 @@ unit_walkDiamondVisitsOnce = do
     depGraph
         @?= ( DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objPathA, ObjUnsynced{drvPath = drvPathA, refPaths = Set.fromList [objPathB, objPathC]})
-                    , (objPathB, ObjUnsynced{drvPath = drvPathB, refPaths = Set.fromList [objPathD]})
-                    , (objPathC, ObjUnsynced{drvPath = drvPathC, refPaths = Set.fromList [objPathD]})
-                    , (objPathD, ObjUnbuilt{drvPath = drvPathD})
+                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB, objPathC]})
+                    , (objPathB, ObjUnsynced{refPaths = Set.fromList [objPathD]})
+                    , (objPathC, ObjUnsynced{refPaths = Set.fromList [objPathD]})
+                    , (objPathD, ObjUnsynced{refPaths = Set.empty})
+                    ]
+            )
+    objPath @?= objPathA
+
+unit_walkMultiOutputs :: IO ()
+unit_walkMultiOutputs = do
+    let drvA = mkDerivation (mkInputs [(drvPathB, "out"), (drvPathB, "dev")]) (Map.fromList [("out", objPathA)])
+    let drvB = mkDerivation (mkInputs [(drvPathC, "out")]) (Map.fromList [("out", objPathB), ("dev", objPathBDev)])
+    let drvC = mkDerivation (mkInputs []) (Map.fromList [("out", objPathC)])
+    let narC = NarInfo{narInfoRefs = Set.empty}
+    let env =
+            defaultEnv
+                { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC)]
+                , remoteNars = Map.fromList [(objPathC, narC)]
+                }
+
+    let Right (depGraph, objPath) = runWalk env drvPathA "out"
+
+    depGraph
+        @?= ( DepGraph.empty
+                & applyObjNodeInsertions
+                    [ (objPathA, ObjUnbuilt{drvPath = drvPathA})
+                    , (objPathB, ObjUnbuilt{drvPath = drvPathB})
+                    , (objPathBDev, ObjUnbuilt{drvPath = drvPathB})
+                    , (objPathC, ObjUnsynced{refPaths = Set.empty})
                     ]
                 & applyDrvNodeInsertions
-                    [ (drvPathA, DrvNode{inputObjPaths = Map.fromList [(objPathB, (drvPathB, "out")), (objPathC, (drvPathC, "out"))]})
-                    , (drvPathB, DrvNode{inputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
-                    , (drvPathC, DrvNode{inputObjPaths = Map.fromList [(objPathD, (drvPathD, "out"))]})
-                    , (drvPathD, DrvNode{inputObjPaths = Map.empty})
+                    [ (drvPathA, DrvNode{inputObjPaths = Set.fromList [objPathB, objPathBDev]})
+                    , (drvPathB, DrvNode{inputObjPaths = Set.fromList [objPathC]})
                     ]
             )
     objPath @?= objPathA
