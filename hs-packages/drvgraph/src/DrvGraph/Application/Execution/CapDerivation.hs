@@ -52,13 +52,12 @@ queryDeriverImpl storeDir objPath = do
     output <- withErrContext ("nix-store command failed for deriver query of " <> Text.pack path) $ do
         let args = ["--query", "--deriver", path]
         outputRes <- liftIO $ try (Process.readProcess "nix-store" args "")
-        output <- case outputRes of
+        case outputRes of
             Left (ex :: IOException) -> throwError $ exceptionToAppError ex
             Right output -> pure output
-        pure output
 
     withErrContext ("got invalid result of deriver query of " <> Text.pack path) $ do
-        if List.isPrefixOf "unknown-deriver" output
+        if "unknown-deriver" `List.isPrefixOf` output
             then pure Nothing
             else do
                 let raw = Text.pack $ FP.takeFileName output
