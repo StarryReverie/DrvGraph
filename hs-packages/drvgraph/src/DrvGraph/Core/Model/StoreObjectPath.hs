@@ -7,6 +7,7 @@ module DrvGraph.Core.Model.StoreObjectPath
     , uncheckedText
     ) where
 
+import Data.Bifunctor (first)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
@@ -16,7 +17,7 @@ import Text.Megaparsec (Parsec, (<?>))
 import Text.Megaparsec qualified as Megaparsec
 import Text.Megaparsec.Char qualified as MegaparsecChar
 
-import DrvGraph.Core.Error (AppEither, appError, unwrapRight, withErrContext)
+import DrvGraph.Core.Error (AppEither, addAppErrorContext, appError, unwrapRight)
 import DrvGraph.Core.Model.Nix32Hash (Nix32Hash)
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 
@@ -41,7 +42,7 @@ parse = do
 
 -- | Try to convert a @Text@ to a @StoreObjectPath@.
 fromText :: Text -> AppEither StoreObjectPath
-fromText raw = withErrContext "could not parse store object path" $ do
+fromText raw = first (addAppErrorContext "could not parse store object path") $ do
     case Megaparsec.runParser parse "" raw of
         Left err -> Left $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
         Right sop -> Right sop

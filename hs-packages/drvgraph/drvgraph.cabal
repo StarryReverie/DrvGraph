@@ -89,6 +89,7 @@ library
     , network-uri
     , optics
     , process
+    , safe-exceptions
     , text
     , transformers
   default-language: GHC2024
@@ -155,6 +156,7 @@ executable drvgraph
     , network-uri
     , optics
     , process
+    , safe-exceptions
     , text
     , transformers
   default-language: GHC2024
@@ -231,6 +233,7 @@ test-suite test
     , network-uri
     , optics
     , process
+    , safe-exceptions
     , tasty
     , tasty-hedgehog
     , tasty-hunit

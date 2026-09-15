@@ -8,8 +8,7 @@ module DrvGraph.Core.WalkTest
     , unit_walkInputDrvMissingOutputNameError
     ) where
 
-import Control.Monad.Except (runExceptT, throwError)
-import Control.Monad.Reader (Reader, asks, runReader)
+import Control.Monad.Reader (ReaderT, asks, runReaderT)
 import Data.Either (isLeft)
 import Data.Function ((&))
 import Data.Map.Strict (Map)
@@ -20,11 +19,11 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
-import Test.Tasty.HUnit (assertBool, (@?=))
+import Test.Tasty.HUnit (assertBool, assertFailure, (@?=))
 
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation (loadDerivation))
 import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (queryLocalStoreObject, queryRemoteStoreObject), NarInfo (..))
-import DrvGraph.Core.Error (AppEither, AppExceptT, appError)
+import DrvGraph.Core.Error (AppEither, renderAppError, throwAppErrorText, tryAppError)
 import DrvGraph.Core.Model.DepGraph (DepGraph (..), DrvNode (..), ObjNode (..))
 import DrvGraph.Core.Model.DepGraph qualified as DepGraph
 import DrvGraph.Core.Model.Derivation (Derivation (..), DerivationOutput (..))
@@ -50,28 +49,32 @@ defaultEnv =
         , remoteNars = Map.empty
         }
 
-instance CapDerivation (Reader TestEnv) where
-    loadDerivation :: FilePath -> DerivingPath -> AppExceptT (Reader TestEnv) Derivation
+instance CapDerivation (ReaderT TestEnv IO) where
+    loadDerivation :: FilePath -> DerivingPath -> ReaderT TestEnv IO Derivation
     loadDerivation _storeDir drvPath = do
         derivations <- asks (^. #derivations)
         case Map.lookup drvPath derivations of
             Just drv -> pure drv
-            Nothing -> throwError $ appError "derivation not found in test environment"
+            Nothing -> throwAppErrorText "derivation not found in test environment"
 
-instance CapStoreObject (Reader TestEnv) where
-    queryLocalStoreObject :: FilePath -> StoreObjectPath -> AppExceptT (Reader TestEnv) Bool
+instance CapStoreObject (ReaderT TestEnv IO) where
+    queryLocalStoreObject :: FilePath -> StoreObjectPath -> ReaderT TestEnv IO Bool
     queryLocalStoreObject _storeDir stObjPath = do
         localObjects <- asks (^. #localObjects)
         pure $ Set.member stObjPath localObjects
 
-    queryRemoteStoreObject :: StoreObjectPath -> AppExceptT (Reader TestEnv) (Maybe NarInfo)
+    queryRemoteStoreObject :: StoreObjectPath -> ReaderT TestEnv IO (Maybe NarInfo)
     queryRemoteStoreObject stObjPath = do
         remoteNars <- asks (^. #remoteNars)
         pure $ Map.lookup stObjPath remoteNars
 
-runWalk :: TestEnv -> DerivingPath -> Text -> AppEither (DepGraph, StoreObjectPath)
+runWalk :: TestEnv -> DerivingPath -> Text -> IO (AppEither (DepGraph, StoreObjectPath))
 runWalk env drvPath outName =
-    runReader (runExceptT (walk "/nix/store" drvPath outName)) env
+    runReaderT (tryAppError (walk "/nix/store" drvPath outName)) env
+
+runWalkRight :: TestEnv -> DerivingPath -> Text -> IO (DepGraph, StoreObjectPath)
+runWalkRight env drvPath outName =
+    runWalk env drvPath outName >>= either (assertFailure . Text.unpack . renderAppError) pure
 
 fakeHash :: Int -> Text
 fakeHash i = Text.replicate 32 (Text.singleton (alphaNums !! i))
@@ -136,7 +139,7 @@ unit_walkUnsyncedThenLocalLeaf = do
                 , remoteNars = Map.fromList [(objPathA, narA)]
                 }
 
-    let Right (depGraph, objPath) = runWalk env drvPathA "out"
+    (depGraph, objPath) <- runWalkRight env drvPathA "out"
 
     depGraph
         @?= ( DepGraph.empty
@@ -156,7 +159,7 @@ unit_walkUnbuiltFallback = do
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
                 }
 
-    let Right (depGraph, objPath) = runWalk env drvPathA "out"
+    (depGraph, objPath) <- runWalkRight env drvPathA "out"
 
     depGraph
         @?= ( DepGraph.empty
@@ -187,7 +190,7 @@ unit_walkUnsyncedDiamond = do
                 , remoteNars = Map.fromList [(objPathA, narA), (objPathB, narB), (objPathC, narC), (objPathD, narD)]
                 }
 
-    let Right (depGraph, objPath) = runWalk env drvPathA "out"
+    (depGraph, objPath) <- runWalkRight env drvPathA "out"
 
     depGraph
         @?= ( DepGraph.empty
@@ -212,7 +215,7 @@ unit_walkMultiOutputs = do
                 , remoteNars = Map.fromList [(objPathC, narC)]
                 }
 
-    let Right (depGraph, objPath) = runWalk env drvPathA "out"
+    (depGraph, objPath) <- runWalkRight env drvPathA "out"
 
     depGraph
         @?= ( DepGraph.empty
@@ -237,7 +240,7 @@ unit_walkMissingOutputNameError = do
                 { derivations = Map.fromList [(drvPathA, drvA)]
                 }
 
-    let actual = runWalk env drvPathA "dev"
+    actual <- runWalk env drvPathA "dev"
 
     assertBool "expected a Left error" (isLeft actual)
 
@@ -251,7 +254,7 @@ unit_walkUnsyncedRefWithoutDeriverError = do
                 , remoteNars = Map.fromList [(objPathA, narA)]
                 }
 
-    let actual = runWalk env drvPathA "out"
+    actual <- runWalk env drvPathA "out"
 
     assertBool "expected a Left error" (isLeft actual)
 
@@ -264,6 +267,6 @@ unit_walkInputDrvMissingOutputNameError = do
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
                 }
 
-    let actual = runWalk env drvPathA "out"
+    actual <- runWalk env drvPathA "out"
 
     assertBool "expected a Left error" (isLeft actual)

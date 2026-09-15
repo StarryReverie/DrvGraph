@@ -8,6 +8,7 @@ module DrvGraph.Core.Model.Nix32Hash
     ) where
 
 import Control.Monad (replicateM)
+import Data.Bifunctor (first)
 import Data.Char qualified as Char
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -15,7 +16,7 @@ import Data.Void (Void)
 import Text.Megaparsec (Parsec)
 import Text.Megaparsec qualified as Megaparsec
 
-import DrvGraph.Core.Error (AppEither, appError, unwrapRight, withErrContext)
+import DrvGraph.Core.Error (AppEither, addAppErrorContext, appError, unwrapRight)
 
 -- | Nix's variant of the Base32 encoding, used for store path digest.
 newtype Nix32Hash = Nix32HashInternal {hash :: Text}
@@ -41,7 +42,7 @@ parse = do
 
 -- | Try to convert a @Text@ to @Nix32Hash@.
 fromText :: Text -> AppEither Nix32Hash
-fromText raw = withErrContext "could not parse Nix32 hash" $ do
+fromText raw = first (addAppErrorContext "could not parse Nix32 hash") $ do
     case Megaparsec.runParser (parse <* Megaparsec.eof) "" raw of
         Left err -> Left $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
         Right hash -> Right hash

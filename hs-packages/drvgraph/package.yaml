@@ -23,6 +23,7 @@ dependencies:
   - network-uri
   - optics
   - process
+  - safe-exceptions
   - text
   - transformers
 

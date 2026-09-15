@@ -3,11 +3,9 @@ module DrvGraph.Application.Execution.CapStoreObject
     , queryRemoteStoreObjectImpl
     ) where
 
-import Control.Exception (IOException, try)
+import Control.Exception.Safe (IOException, MonadCatch)
 import Control.Monad (forM)
-import Control.Monad.Catch (MonadThrow)
-import Control.Monad.Except (runExceptT, throwError)
-import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
 import Data.ByteString.Lazy qualified as LazyBytes
 import Data.List qualified as List
@@ -27,33 +25,30 @@ import System.FilePath ((</>))
 
 import DrvGraph.Application.Execution.Environment (AppEnvironment)
 import DrvGraph.Core.Capability.CapStoreObject (NarInfo (..))
-import DrvGraph.Core.Error (AppEither, AppExceptT, appError, exceptionToAppError, liftErr, withErrContext)
+import DrvGraph.Core.Error (AppEither, checkpointAppError, rethrowAsAppError, throwAppEither, throwAppError, throwAppErrorText, throwEitherAsAppError, tryAppError)
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
 queryLocalStoreObjectImpl
-    :: (MonadIO m)
-    => FilePath -> StoreObjectPath -> AppExceptT m Bool
+    :: (MonadCatch m, MonadIO m)
+    => FilePath -> StoreObjectPath -> m Bool
 queryLocalStoreObjectImpl storeDir objPath = do
     let path = storeDir </> StoreObjectPath.toFilePath objPath
 
-    withErrContext ("could not check existence of file " <> Text.pack path) $ do
-        res <- liftIO $ try (Directory.doesPathExist path)
-        case res of
-            Left (ex :: IOException) -> throwError $ exceptionToAppError ex
-            Right exists -> pure exists
+    checkpointAppError ("could not check existence of file " <> Text.pack path) $
+        rethrowAsAppError @IOException (liftIO $ Directory.doesPathExist path)
 
 queryRemoteStoreObjectImpl
-    :: (MonadIO m, MonadReader AppEnvironment m, MonadThrow m)
-    => StoreObjectPath -> AppExceptT m (Maybe NarInfo)
+    :: (MonadCatch m, MonadIO m, MonadReader AppEnvironment m)
+    => StoreObjectPath -> m (Maybe NarInfo)
 queryRemoteStoreObjectImpl objPath = do
     servers <- asks (^. #binaryCacheServers)
 
     requests <- do
         let file = (Text.unpack . Nix32Hash.get $ objPath ^. #hash) <> ".narinfo"
         forM (appendUrl file <$> servers) $ \url -> do
-            initRequest <- Http.requestFromURI url
+            initRequest <- liftIO $ Http.requestFromURI url
             let request = initRequest{requestHeaders = [(HttpHeader.hUserAgent, "DrvGraph/0.1.0.0")]}
             pure (url, request)
 
@@ -67,48 +62,42 @@ appendUrl file server@URI{uriPath} = server{uriPath = p}
         _ -> uriPath <> "/" <> file
 
 sendRequestLoop
-    :: (MonadIO m, MonadReader AppEnvironment m)
-    => [(URI, Request)] -> AppExceptT m (Maybe NarInfo)
+    :: (MonadCatch m, MonadIO m, MonadReader AppEnvironment m)
+    => [(URI, Request)] -> m (Maybe NarInfo)
 sendRequestLoop requests = go requests Nothing
   where
     go [] Nothing = pure Nothing
-    go [] (Just err) = throwError err
+    go [] (Just err) = throwAppError err
     go ((url, request) : rs) lastErr = do
-        res <- runExceptT $ sendRequest url request
+        res <- tryAppError $ sendRequest url request
         case res of
             Left err -> go rs (Just err)
             Right Nothing -> go rs lastErr
             Right (Just narinfo) -> pure $ Just narinfo
 
 sendRequest
-    :: (MonadIO m, MonadReader AppEnvironment m)
-    => URI -> Request -> AppExceptT m (Maybe NarInfo)
+    :: (MonadCatch m, MonadIO m, MonadReader AppEnvironment m)
+    => URI -> Request -> m (Maybe NarInfo)
 sendRequest uri request = do
     httpManager <- asks (^. #httpManager)
 
-    response <- withErrContext ("could not send request to " <> uriText) $ do
-        res <- liftIO $ try (Http.httpLbs request httpManager)
+    response <-
+        checkpointAppError ("could not send request to " <> uriText) $
+            rethrowAsAppError @HttpException (liftIO $ Http.httpLbs request httpManager)
 
-        case res of
-            Left (ex :: HttpException) -> throwError $ exceptionToAppError ex
-            Right bytes -> pure bytes
-
-    content <- withErrContext ("could not read response of " <> uriText) $ do
+    content <- checkpointAppError ("could not read response of " <> uriText) $ do
         case Http.responseStatus response of
             HttpStatus.Status 200 _ -> do
                 let bytes = LazyBytes.toStrict $ Http.responseBody response
-                case TextEncoding.decodeUtf8' bytes of
-                    Left ex -> throwError $ exceptionToAppError ex
-                    Right content -> pure $ Just content
+                throwEitherAsAppError $ Just <$> TextEncoding.decodeUtf8' bytes
             HttpStatus.Status 403 _ -> pure Nothing
             HttpStatus.Status 404 _ -> pure Nothing
             status -> do
-                let errMsg = "got response status code " <> Text.pack (show status)
-                throwError $ appError errMsg
+                throwAppErrorText $ "got response status code " <> Text.pack (show status)
 
-    withErrContext ("could not parse narinfo from " <> uriText) $ do
+    checkpointAppError ("could not parse narinfo from " <> uriText) $ do
         case content of
-            Just raw -> liftErr $ Just <$> parseNarInfo raw
+            Just raw -> throwAppEither $ Just <$> parseNarInfo raw
             Nothing -> pure Nothing
   where
     uriText = Text.pack (show uri)
