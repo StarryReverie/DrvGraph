@@ -88,7 +88,7 @@ objTreeToLines pos StObjTreeVisited{objPath} =
         EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Omitted", EntryLineColor{color = Magenta, intensity = Vivid})
+                [ ("Visited", EntryLineColor{color = Magenta, intensity = Vivid})
                 , makePackageNameTextChunk (objPath ^. #name)
                 , makeStoreObjectPathTextChunk objPath
                 ]
