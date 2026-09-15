@@ -9,6 +9,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
 import Data.ByteString.Lazy qualified as LazyBytes
 import Data.List qualified as List
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe qualified as Maybe
 import Data.Set qualified as Set
 import Data.Text (Text)
@@ -43,7 +44,7 @@ queryRemoteStoreObjectImpl
     :: (MonadCatch m, MonadIO m, MonadReader AppEnvironment m)
     => StoreObjectPath -> m (Maybe NarInfo)
 queryRemoteStoreObjectImpl objPath = do
-    servers <- asks (^. #binaryCacheServers)
+    servers <- asks (NonEmpty.toList . (^. #binaryCacheServers))
 
     requests <- do
         let file = (Text.unpack . Nix32Hash.get $ objPath ^. #hash) <> ".narinfo"
