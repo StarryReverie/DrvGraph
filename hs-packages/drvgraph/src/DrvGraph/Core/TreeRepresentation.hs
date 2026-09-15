@@ -51,8 +51,8 @@ data DerivationTree
     deriving (Eq, Show)
 
 data TreeRepresentationOptions = TreeRepresentationOptions
-    { skipExisted :: Bool
-    , skipVisited :: Bool
+    { includeExisted :: Bool
+    , includeVisited :: Bool
     }
     deriving (Eq, Show)
 
@@ -72,8 +72,8 @@ makeFieldLabelsNoPrefix ''ToDisplayTreeState
 defaultOptions :: TreeRepresentationOptions
 defaultOptions =
     TreeRepresentationOptions
-        { skipExisted = True
-        , skipVisited = True
+        { includeExisted = False
+        , includeVisited = False
         }
 
 -- | Convert a traversal from a @StoreObjectPath@ in a @DepGraph@ to a tree
@@ -102,16 +102,16 @@ recurseStoreObject opts isTop graph objPath = do
     isVisited <- gets $ Set.member objPath . (^. #visitedObjPaths)
     if isVisited
         then
-            if opts ^. #skipVisited
-                then pure Nothing
-                else pure $ Just StObjTreeVisited{objPath}
+            if opts ^. #includeVisited
+                then pure $ Just StObjTreeVisited{objPath}
+                else pure Nothing
         else do
             modify $ #visitedObjPaths %~ Set.insert objPath
 
             case DepGraph.lookupObjNode objPath graph of
                 Just ObjExisted
-                    | not isTop && opts ^. #skipExisted -> pure Nothing
-                    | otherwise -> pure $ Just StObjTreeExisted{objPath}
+                    | isTop || opts ^. #includeExisted -> pure $ Just StObjTreeExisted{objPath}
+                    | otherwise -> pure Nothing
                 Just ObjUnsynced{refPaths} -> recurseForUnsynced refPaths
                 Just ObjUnbuilt{drvPath} -> recurseForUnbuilt drvPath
                 Nothing -> pure Nothing
@@ -144,9 +144,9 @@ recurseDerivation opts graph drvPath = do
     isVisited <- gets $ Set.member drvPath . (^. #visitedDrvPaths)
     if isVisited
         then
-            if opts ^. #skipVisited
-                then pure Nothing
-                else pure $ Just DrvTreeVisited{drvPath}
+            if opts ^. #includeVisited
+                then pure $ Just DrvTreeVisited{drvPath}
+                else pure Nothing
         else do
             modify $ #visitedDrvPaths %~ Set.insert drvPath
 

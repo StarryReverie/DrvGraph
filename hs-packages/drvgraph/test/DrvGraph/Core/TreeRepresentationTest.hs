@@ -54,8 +54,8 @@ applyDrvNodeInsertions pairs graph = foldr (uncurry DepGraph.insertDrvNode) grap
 testDefaultOptions :: TreeRepresentationOptions
 testDefaultOptions =
     TreeRepresentationOptions
-        { skipExisted = False
-        , skipVisited = False
+        { includeExisted = True
+        , includeVisited = True
         }
 
 unit_toDisplayTreeAllBranches :: IO ()
