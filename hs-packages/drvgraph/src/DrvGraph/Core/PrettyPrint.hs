@@ -1,18 +1,21 @@
 module DrvGraph.Core.PrettyPrint
     ( EntryLine (..)
     , EntryLineColor (..)
+    , ToLinesOptions (..)
     , treeToLines
     ) where
 
 import Data.DList (DList)
 import Data.DList qualified as DList
 import Data.Text (Text)
+import Data.Text qualified as Text
 import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
-import System.Console.ANSI (Color (Blue, Green, Magenta, White, Yellow), ColorIntensity (Dull, Vivid))
+import System.Console.ANSI (Color (Blue, Cyan, Green, Magenta, White, Yellow), ColorIntensity (Dull, Vivid))
 
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
+import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 import DrvGraph.Core.TreeRepresentation (DerivationTree (..), StoreObjectTree (..))
@@ -29,97 +32,96 @@ data EntryLineColor = EntryLineColor
     }
     deriving (Eq, Show)
 
+data ToLinesOptions = ToLinesOptions
+    { showFile :: Bool
+    }
+    deriving (Eq, Show)
+
 makeFieldLabelsNoPrefix ''EntryLine
 makeFieldLabelsNoPrefix ''EntryLineColor
+makeFieldLabelsNoPrefix ''ToLinesOptions
 
-treeToLines :: StoreObjectTree -> [EntryLine]
-treeToLines = DList.toList . objTreeToLines []
+treeToLines :: ToLinesOptions -> StoreObjectTree -> [EntryLine]
+treeToLines opts = DList.toList . objTreeToLines opts []
 
-objTreeToLines :: [Bool] -> StoreObjectTree -> DList EntryLine
-objTreeToLines pos StObjTreeExisted{objPath} =
+objTreeToLines :: ToLinesOptions -> [Bool] -> StoreObjectTree -> DList EntryLine
+objTreeToLines opts pos StObjTreeExisted{objPath} =
     DList.singleton
         EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Existed", EntryLineColor{color = Green, intensity = Vivid})
-                , makePackageNameTextChunk (objPath ^. #name)
-                , makeStoreObjectPathTextChunk objPath
-                ]
+                [("Existed", EntryLineColor{color = Green, intensity = Vivid})]
+                    <> makePackageNameTextChunks (objPath ^. #name)
+                    <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
             }
-objTreeToLines pos StObjTreeUnsynced{objPath, refChildren} =
+objTreeToLines opts pos StObjTreeUnsynced{objPath, refChildren} =
     DList.cons
         ( EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Unsynced", EntryLineColor{color = Blue, intensity = Vivid})
-                , makePackageNameTextChunk (objPath ^. #name)
-                , makeStoreObjectPathTextChunk objPath
-                ]
+                [("Unsynced", EntryLineColor{color = Blue, intensity = Vivid})]
+                    <> makePackageNameTextChunks (objPath ^. #name)
+                    <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
             }
         )
-        (collectChildrenLines pos refChildren)
-objTreeToLines pos StObjTreeUnbuilt{objPath, drvChild} =
+        (collectChildrenLines opts pos refChildren)
+objTreeToLines opts pos StObjTreeUnbuilt{objPath, drvChild} =
     DList.cons
         ( EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Unbuilt", EntryLineColor{color = Yellow, intensity = Vivid})
-                , makePackageNameTextChunk (objPath ^. #name)
-                , makeStoreObjectPathTextChunk objPath
-                ]
+                [("Unbuilt", EntryLineColor{color = Yellow, intensity = Vivid})]
+                    <> makePackageNameTextChunks (objPath ^. #name)
+                    <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
             }
         )
-        (drvTreeToLines (True : pos) drvChild)
-objTreeToLines pos StObjTreeUnbuiltWithDrv{objPath, drvPath, objChildren} =
+        (drvTreeToLines opts (True : pos) drvChild)
+objTreeToLines opts pos StObjTreeUnbuiltWithDrv{objPath, drvPath, objChildren} =
     DList.cons
         ( EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Unbuilt", EntryLineColor{color = Yellow, intensity = Vivid})
-                , makePackageNameTextChunk (objPath ^. #name)
-                , makeStoreObjectPathTextChunk objPath
-                , makeDerivingPathTextChunk drvPath
-                ]
+                [("Unbuilt", EntryLineColor{color = Yellow, intensity = Vivid})]
+                    <> makePackageNameTextChunks (objPath ^. #name)
+                    <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
+                    <> makeDerivingPathTextChunks (opts ^. #showFile) drvPath
             }
         )
-        (collectChildrenLines pos objChildren)
-objTreeToLines pos StObjTreeVisited{objPath} =
+        (collectChildrenLines opts pos objChildren)
+objTreeToLines opts pos StObjTreeVisited{objPath} =
     DList.singleton
         EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Visited", EntryLineColor{color = Magenta, intensity = Vivid})
-                , makePackageNameTextChunk (objPath ^. #name)
-                , makeStoreObjectPathTextChunk objPath
-                ]
+                [("Visited", EntryLineColor{color = Magenta, intensity = Vivid})]
+                    <> makePackageNameTextChunks (objPath ^. #name)
+                    <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
             }
 
-drvTreeToLines :: [Bool] -> DerivationTree -> DList EntryLine
-drvTreeToLines pos DrvTreeUnbuilt{drvPath, objChildren} =
+drvTreeToLines :: ToLinesOptions -> [Bool] -> DerivationTree -> DList EntryLine
+drvTreeToLines opts pos DrvTreeUnbuilt{drvPath, objChildren} =
     DList.cons
         ( EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Unbuilt", EntryLineColor{color = Yellow, intensity = Vivid})
-                , makeDerivingPathTextChunk drvPath
-                ]
+                [("Unbuilt", EntryLineColor{color = Yellow, intensity = Vivid})]
+                    <> makeDerivingPathTextChunks True drvPath
             }
         )
-        (collectChildrenLines pos objChildren)
-drvTreeToLines pos DrvTreeVisited{drvPath} =
+        (collectChildrenLines opts pos objChildren)
+drvTreeToLines _ pos DrvTreeVisited{drvPath} =
     DList.singleton
         EntryLine
             { isSubtreeLastChild = pos
             , content =
-                [ ("Omitted", EntryLineColor{color = Magenta, intensity = Vivid})
-                , makeDerivingPathTextChunk drvPath
-                ]
+                [("Visited", EntryLineColor{color = Magenta, intensity = Vivid})]
+                    <> makeDerivingPathTextChunks True drvPath
             }
 
-collectChildrenLines :: [Bool] -> [StoreObjectTree] -> DList EntryLine
-collectChildrenLines pos =
+collectChildrenLines :: ToLinesOptions -> [Bool] -> [StoreObjectTree] -> DList EntryLine
+collectChildrenLines opts pos =
     lastAwaredFoldr
-        ((<>) . (\(child, isLast) -> objTreeToLines (isLast : pos) child))
+        ((<>) . (\(child, isLast) -> objTreeToLines opts (isLast : pos) child))
         DList.empty
 
 lastAwaredFoldr :: ((a, Bool) -> b -> b) -> b -> [a] -> b
@@ -127,20 +129,24 @@ lastAwaredFoldr _ initial [] = initial
 lastAwaredFoldr f initial [x] = f (x, True) (lastAwaredFoldr f initial [])
 lastAwaredFoldr f initial (x : xs) = f (x, False) (lastAwaredFoldr f initial xs)
 
-makePackageNameTextChunk :: Text -> (Text, EntryLineColor)
-makePackageNameTextChunk pkgName =
-    ( pkgName
-    , EntryLineColor{color = White, intensity = Vivid}
-    )
+makePackageNameTextChunks :: Text -> [(Text, EntryLineColor)]
+makePackageNameTextChunks pkgName =
+    [(pkgName, EntryLineColor{color = White, intensity = Vivid})]
 
-makeStoreObjectPathTextChunk :: StoreObjectPath -> (Text, EntryLineColor)
-makeStoreObjectPathTextChunk objPath =
-    ( StoreObjectPath.toText objPath
-    , EntryLineColor{color = Blue, intensity = Dull}
-    )
+makeStoreObjectPathTextChunks :: Bool -> StoreObjectPath -> [(Text, EntryLineColor)]
+makeStoreObjectPathTextChunks showFile objPath =
+    [(text, EntryLineColor{color = Cyan, intensity = Dull})]
+  where
+    text =
+        if showFile
+            then StoreObjectPath.toText objPath
+            else Text.take 8 (Nix32Hash.get (objPath ^. #hash))
 
-makeDerivingPathTextChunk :: DerivingPath -> (Text, EntryLineColor)
-makeDerivingPathTextChunk drvPath =
-    ( DerivingPath.toText drvPath
-    , EntryLineColor{color = Yellow, intensity = Dull}
-    )
+makeDerivingPathTextChunks :: Bool -> DerivingPath -> [(Text, EntryLineColor)]
+makeDerivingPathTextChunks showFile drvPath =
+    [(text, EntryLineColor{color = Yellow, intensity = Dull})]
+  where
+    text =
+        if showFile
+            then DerivingPath.toText drvPath
+            else "drv:" <> Text.take 8 (Nix32Hash.get (drvPath ^. #hash))

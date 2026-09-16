@@ -16,7 +16,7 @@ import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..), AppOpt
 import DrvGraph.Application.Execution (App, runApp)
 import DrvGraph.Application.Initialization (appInit)
 import DrvGraph.Core.Error (checkpointAppError, renderAppError, throwAppErrorText, tryAppError)
-import DrvGraph.Core.PrettyPrint (EntryLine (..), EntryLineColor (..), treeToLines)
+import DrvGraph.Core.PrettyPrint (EntryLine (..), EntryLineColor (..), ToLinesOptions (..), treeToLines)
 import DrvGraph.Core.TreeRepresentation (TreeRepresentationOptions (..), depGraphToTreeRepresentation)
 import DrvGraph.Core.Walk (walk)
 
@@ -34,17 +34,21 @@ app args optsDefault = do
     (depGraph, rootObjPath) <- checkpointAppError "could not traverse nix store" $ do
         walk storeDir drvPath outName
 
-    tree <- do
-        let treeOpts =
-                TreeRepresentationOptions
-                    { includeExisted = optsDefault ^. #showExisted
-                    , includeVisited = optsDefault ^. #showVisited
-                    }
-        case depGraphToTreeRepresentation treeOpts depGraph rootObjPath of
-            Just tree -> pure tree
-            Nothing -> throwAppErrorText "no valid tree display"
+    let treeOpts =
+            TreeRepresentationOptions
+                { includeExisted = optsDefault ^. #showExisted
+                , includeVisited = optsDefault ^. #showVisited
+                }
+    tree <- case depGraphToTreeRepresentation treeOpts depGraph rootObjPath of
+        Just tree -> pure tree
+        Nothing -> throwAppErrorText "no valid tree display"
 
-    liftIO $ TextIO.putStrLn $ Text.unlines (renderEntryLine <$> treeToLines tree)
+    let toLinesOpts =
+            ToLinesOptions
+                { showFile = optsDefault ^. #showFile
+                }
+    let ls = renderEntryLine <$> treeToLines toLinesOpts tree
+    liftIO $ TextIO.putStrLn $ Text.unlines ls
 
     pure ()
 
