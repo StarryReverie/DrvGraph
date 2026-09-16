@@ -4,12 +4,21 @@ module DrvGraph.Application
 
 import Control.Exception.Safe (MonadCatch)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.Maybe qualified as Maybe
+import Data.Text (Text)
+import Data.Text qualified as Text
 import Data.Text.IO qualified as TextIO
+import Optics ((^.))
+import System.Console.ANSI (ConsoleLayer (..), setSGRCode)
+import System.Console.ANSI.Codes (SGR (..))
 
-import DrvGraph.Application.Argument (AppArguments, AppOptions (..))
-import DrvGraph.Application.Execution (runApp)
-import DrvGraph.Core.Error (renderAppError, tryAppError)
+import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..), AppOptionsWithDefault)
+import DrvGraph.Application.Execution (App, runApp)
 import DrvGraph.Application.Initialization (appInit)
+import DrvGraph.Core.Error (checkpointAppError, renderAppError, throwAppErrorText, tryAppError)
+import DrvGraph.Core.PrettyPrint (EntryLine (..), EntryLineColor (..), treeToLines)
+import DrvGraph.Core.TreeRepresentation (TreeRepresentationOptions (..), depGraphToTreeRepresentation)
+import DrvGraph.Core.Walk (walk)
 
 appMain :: (MonadCatch m, MonadIO m) => AppArguments -> AppOptions -> m ()
 appMain args opts = do
@@ -17,6 +26,42 @@ appMain args opts = do
     liftIO (runApp (tryAppError (app args optsDefault)) env) >>= \case
         Left err -> liftIO $ TextIO.putStrLn $ renderAppError err
         Right () -> pure ()
+
+app :: AppArguments -> AppOptionsWithDefault -> App ()
+app args optsDefault = do
+    let AppArguments{storeDir, drvPath, outName} = args
+
+    (depGraph, rootObjPath) <- checkpointAppError "could not traverse nix store" $ do
+        walk storeDir drvPath outName
+
+    tree <- do
+        let treeOpts =
+                TreeRepresentationOptions
+                    { includeExisted = optsDefault ^. #showExisted
+                    , includeVisited = optsDefault ^. #showVisited
+                    }
+        case depGraphToTreeRepresentation treeOpts depGraph rootObjPath of
+            Just tree -> pure tree
+            Nothing -> throwAppErrorText "no valid tree display"
+
+    liftIO $ TextIO.putStrLn $ Text.unlines (renderEntryLine <$> treeToLines tree)
+
+    pure ()
+
+renderEntryLine :: EntryLine -> Text
+renderEntryLine EntryLine{isSubtreeLastChild, content} =
+    Text.concat (renderAncestor <$> reverse (drop 1 isSubtreeLastChild))
+        <> maybe "" renderConnector (Maybe.listToMaybe isSubtreeLastChild)
+        <> Text.intercalate " " (renderChunk <$> content)
   where
-    app args optsDefault = do
-        pure ()
+    renderAncestor True = "   "
+    renderAncestor False = "│  "
+
+    renderConnector True = "└─ "
+    renderConnector False = "├─ "
+
+    renderChunk :: (Text, EntryLineColor) -> Text
+    renderChunk (chunk, EntryLineColor{color, intensity}) =
+        Text.pack (setSGRCode [SetColor Foreground intensity color])
+            <> chunk
+            <> Text.pack (setSGRCode [Reset])

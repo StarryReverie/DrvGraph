@@ -18,16 +18,16 @@ data AppArguments = AppArguments
     }
 
 data AppOptions = AppOptions
-    { showExisted :: Maybe Bool
-    , showVisited :: Maybe Bool
-    , showHash :: Maybe Bool
+    { showExisted :: Bool
+    , showVisited :: Bool
+    , showFile :: Bool
     , substituters :: Maybe (NonEmpty URI)
     }
 
 data AppOptionsWithDefault = AppOptionsWithDefault
     { showExisted :: Bool
     , showVisited :: Bool
-    , showHash :: Bool
+    , showFile :: Bool
     , substituters :: NonEmpty URI
     }
 

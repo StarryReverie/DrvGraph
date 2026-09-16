@@ -27,9 +27,9 @@ appInit opts = do
 
     let optsDefault =
             AppOptionsWithDefault
-                { showExisted = Maybe.fromMaybe False (opts ^. #showExisted)
-                , showVisited = Maybe.fromMaybe False (opts ^. #showVisited)
-                , showHash = Maybe.fromMaybe False (opts ^. #showHash)
+                { showExisted = opts ^. #showExisted
+                , showVisited = opts ^. #showVisited
+                , showFile = opts ^. #showFile
                 , substituters
                 }
 
