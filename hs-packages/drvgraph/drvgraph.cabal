@@ -47,6 +47,7 @@ library
       LambdaCase
       MultiWayIf
       NamedFieldPuns
+      RecordWildCards
       TupleSections
       DeriveFoldable
       DeriveFunctor
@@ -91,6 +92,7 @@ library
     , mtl
     , network-uri
     , optics
+    , optparse-applicative
     , process
     , safe-exceptions
     , text
@@ -113,6 +115,7 @@ executable drvgraph
       LambdaCase
       MultiWayIf
       NamedFieldPuns
+      RecordWildCards
       TupleSections
       DeriveFoldable
       DeriveFunctor
@@ -158,6 +161,7 @@ executable drvgraph
     , mtl
     , network-uri
     , optics
+    , optparse-applicative
     , process
     , safe-exceptions
     , text
@@ -188,6 +192,7 @@ test-suite test
       LambdaCase
       MultiWayIf
       NamedFieldPuns
+      RecordWildCards
       TupleSections
       DeriveFoldable
       DeriveFunctor
@@ -235,6 +240,7 @@ test-suite test
     , mtl
     , network-uri
     , optics
+    , optparse-applicative
     , process
     , safe-exceptions
     , tasty

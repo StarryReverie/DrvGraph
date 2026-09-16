@@ -10,6 +10,7 @@
     - LambdaCase
     - MultiWayIf
     - NamedFieldPuns
+    - RecordWildCards
     - TupleSections
     - DeriveFoldable
     - DeriveFunctor
