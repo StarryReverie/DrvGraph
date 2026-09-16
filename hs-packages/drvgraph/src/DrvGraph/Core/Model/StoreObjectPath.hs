@@ -43,9 +43,10 @@ parse = do
 -- | Try to convert a @Text@ to a @StoreObjectPath@.
 fromText :: Text -> AppEither StoreObjectPath
 fromText raw = first (addAppErrorContext "could not parse store object path") $ do
-    case Megaparsec.runParser parse "" raw of
-        Left err -> Left $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
-        Right sop -> Right sop
+    let (hashText, rest) = Text.splitAt 32 raw
+    hash <- Nix32Hash.fromText hashText
+    name <- maybe (Left $ appError "missing '-' after hash") Right (Text.stripPrefix "-" rest)
+    pure StoreObjectPath{hash, name}
 
 -- | Render a @StoreObjectPath@ datatype to a @Text@.
 toText :: StoreObjectPath -> Text

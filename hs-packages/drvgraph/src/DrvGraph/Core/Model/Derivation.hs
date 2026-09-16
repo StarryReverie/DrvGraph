@@ -6,6 +6,7 @@ module DrvGraph.Core.Model.Derivation
     , existsOutput
     ) where
 
+import Control.Monad (void)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Set (Set)
@@ -30,10 +31,6 @@ data Derivation = Derivation
     { inputDrvs :: Map DerivingPath (Set Text)
     , inputSrcs :: Set StoreObjectPath
     , outputs :: Map Text DerivationOutput
-    , platform :: Text
-    , builder :: Text
-    , args :: [Text]
-    , envs :: Map Text Text
     }
     deriving (Eq, Show)
 
@@ -69,14 +66,14 @@ parseDerivation = Megaparsec.between (MegaparsecChar.string "Derive(") (Megapars
     _ <- MegaparsecChar.char ','
     inputSrcs <- makeSetParser parseStoreObjectPath <?> "derivation input sources"
     _ <- MegaparsecChar.char ','
-    platform <- parseString <?> "derivation platform"
+    void (skipString <?> "derivation platform")
     _ <- MegaparsecChar.char ','
-    builder <- parseString <?> "derivation builder"
+    void (skipString <?> "derivation builder")
     _ <- MegaparsecChar.char ','
-    args <- makeListParser parseString <?> "derivation arguments"
+    void (makeListParser skipString <?> "derivation arguments")
     _ <- MegaparsecChar.char ','
-    envs <- makeMapParser (makePairParaser parseString parseString) <?> "derivation environments"
-    pure Derivation{inputDrvs, inputSrcs, outputs, platform, builder, args, envs}
+    void (makeMapParser (makePairParaser skipString skipString) <?> "derivation environments")
+    pure Derivation{inputDrvs, inputSrcs, outputs}
 
 parseManyDerivationOutputs :: Parser (Map Text DerivationOutput)
 parseManyDerivationOutputs = makeMapParser parseDerivationOutput
@@ -138,24 +135,49 @@ makePairParaser p1 p2 = Megaparsec.between (MegaparsecChar.char '(') (Megaparsec
     pure (r1, r2)
 
 parseString :: Parser Text
-parseString = MegaparsecChar.char '\"' >> loop
-  where
-    loop = do
-        normalText <- Megaparsec.takeWhileP Nothing (not . isQuoteOrBackslash)
-        quoteOrBackslash <- Megaparsec.satisfy isQuoteOrBackslash
-        remaining <- case quoteOrBackslash of
-            '\"' -> pure ""
-            _ -> do
-                nextChar <- Megaparsec.anySingle
-                unescaped <- case nextChar of
-                    'n' -> pure '\n'
-                    't' -> pure '\t'
-                    'r' -> pure '\r'
-                    other -> pure other
-                Text.cons unescaped <$> loop
-        pure $ normalText <> remaining
+parseString = unescapeText <$> parseQuotedRaw
 
-    isQuoteOrBackslash c = c == '\"' || c == '\\'
+skipString :: Parser ()
+skipString = void parseQuotedRaw
+
+parseQuotedRaw :: Parser Text
+parseQuotedRaw = do
+    input <- Megaparsec.getInput
+    case Text.uncons input of
+        Just ('\"', content) -> case findStringEnd 0 content of
+            Nothing -> fail "unterminated string literal"
+            Just contentLength -> do
+                void $ Megaparsec.takeP (Just "string content") (contentLength + 2)
+                pure $ Text.take contentLength content
+        _ -> fail "expected a string"
+
+findStringEnd :: Int -> Text -> Maybe Int
+findStringEnd !index input = case Text.uncons rest of
+    Nothing -> Nothing
+    Just ('\"', _) -> Just nextIndex
+    Just ('\\', escaped) -> findStringEnd (nextIndex + 2) (Text.drop 1 escaped)
+    Just (_, _) -> Nothing
+  where
+    (normal, rest) = Text.span (\c -> c /= '\"' && c /= '\\') input
+    nextIndex = index + Text.length normal
+
+unescapeText :: Text -> Text
+unescapeText raw
+    | Text.any (== '\\') raw = Text.concat (go raw)
+    | otherwise = raw
+  where
+    go text = case Text.break (== '\\') text of
+        (normal, rest) -> case Text.uncons rest of
+            Nothing -> [normal]
+            Just (_, afterSlash) -> case Text.uncons afterSlash of
+                Nothing -> [normal]
+                Just (escaped, afterEscaped) -> normal : Text.singleton (unescapeChar escaped) : go afterEscaped
+
+    unescapeChar = \case
+        'n' -> '\n'
+        't' -> '\t'
+        'r' -> '\r'
+        other -> other
 
 parseFilePath :: Parser FilePath
 parseFilePath = do

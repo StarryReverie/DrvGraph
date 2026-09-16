@@ -7,8 +7,6 @@ module DrvGraph.Core.Model.Nix32Hash
     , uncheckedText
     ) where
 
-import Control.Monad (replicateM)
-import Data.Bifunctor (first)
 import Data.Char qualified as Char
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -32,20 +30,22 @@ get (Nix32HashInternal hash) = hash
 
 type Parser = Parsec Void Text
 
+isNix32Char :: Char -> Bool
+isNix32Char c = Char.isDigit c || (Char.isAsciiLower c && c `notElem` ['e', 'o', 't', 'u'])
+
 -- | Parse a @Nix32Hash@.
 parse :: Parser Nix32Hash
 parse = do
-    chars <- replicateM 32 (Megaparsec.satisfy charPred)
-    pure $ Nix32HashInternal (Text.pack chars)
-  where
-    charPred c = Char.isDigit c || (Char.isAsciiLower c && c `notElem` ['e', 'o', 't', 'u'])
+    raw <- Megaparsec.takeP (Just "nix32 hash") 32
+    if Text.all isNix32Char raw
+        then pure $ Nix32HashInternal raw
+        else fail "nix32 hash contains invalid character"
 
 -- | Try to convert a @Text@ to @Nix32Hash@.
 fromText :: Text -> AppEither Nix32Hash
-fromText raw = first (addAppErrorContext "could not parse Nix32 hash") $ do
-    case Megaparsec.runParser (parse <* Megaparsec.eof) "" raw of
-        Left err -> Left $ appError . Text.pack . Megaparsec.errorBundlePretty $ err
-        Right hash -> Right hash
+fromText raw
+    | Text.length raw == 32 && Text.all isNix32Char raw = Right $ Nix32HashInternal raw
+    | otherwise = Left . addAppErrorContext "could not parse Nix32 hash" $ appError "invalid nix32 hash"
 
 -- | Convert a @Text@ to @Nix32Hash@ or error
 uncheckedText :: Text -> Nix32Hash

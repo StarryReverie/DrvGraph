@@ -113,10 +113,6 @@ mkDerivation inputDrvs outputPaths =
         { inputDrvs
         , inputSrcs = Set.empty
         , outputs = Map.map toDerivationOutput outputPaths
-        , platform = "x86_64-linux"
-        , builder = "/nix/store/0bash/bin/bash"
-        , args = []
-        , envs = Map.empty
         }
   where
     toDerivationOutput path = DerivationOutput{path, hash = Nothing}
