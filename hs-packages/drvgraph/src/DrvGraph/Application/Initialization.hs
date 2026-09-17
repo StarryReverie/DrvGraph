@@ -36,7 +36,7 @@ appInit opts = do
                 }
 
     httpManager <- liftIO $ Http.newManager HttpTls.tlsManagerSettings
-    derivationCache <- liftIO $ atomically $ StmMap.new
+    derivationCache <- liftIO $ atomically StmMap.new
 
     let env =
             AppEnvironment

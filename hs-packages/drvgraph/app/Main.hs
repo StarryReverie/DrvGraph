@@ -2,7 +2,7 @@ module Main (main) where
 
 import Control.Applicative (many, (<**>))
 import Control.Exception.Safe (IOException, MonadCatch)
-import Control.Monad (when)
+import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Bifunctor (first)
 import Data.Foldable (fold)
@@ -98,7 +98,7 @@ parseArgument :: Text -> AppEither (FilePath, DerivingPath, Maybe Text)
 parseArgument raw = do
     let (pathPart, outPart) = Text.breakOn "^" raw
     let pathText = Text.unpack (Text.strip pathPart)
-    when (not (Path.isAbsolute pathText)) $
+    unless (Path.isAbsolute pathText) $
         Left $
             appError ("deriving path is not absolute: " <> Text.pack pathText)
     drvPath <-
@@ -111,7 +111,7 @@ parseArgument raw = do
 
 -- | Prefer the output name embedded in the input, then @--out-name@, then @out@.
 resolveOutName :: Maybe Text -> Maybe Text -> Text
-resolveOutName cliOutName parsedOutName = fromMaybe (fromMaybe "out" cliOutName) parsedOutName
+resolveOutName cliOutName = fromMaybe (fromMaybe "out" cliOutName)
 
 runProcess :: (MonadCatch m, MonadIO m) => FilePath -> [String] -> m (ExitCode, Text, Text)
 runProcess command arguments = do
