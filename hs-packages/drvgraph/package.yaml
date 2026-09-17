@@ -25,6 +25,8 @@ dependencies:
   - optparse-applicative
   - process
   - safe-exceptions
+  - stm
+  - stm-containers
   - text
   - transformers
 

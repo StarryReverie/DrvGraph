@@ -95,6 +95,8 @@ library
     , optparse-applicative
     , process
     , safe-exceptions
+    , stm
+    , stm-containers
     , text
     , transformers
   default-language: GHC2024
@@ -164,6 +166,8 @@ executable drvgraph
     , optparse-applicative
     , process
     , safe-exceptions
+    , stm
+    , stm-containers
     , text
     , transformers
   default-language: GHC2024
@@ -243,6 +247,8 @@ test-suite test
     , optparse-applicative
     , process
     , safe-exceptions
+    , stm
+    , stm-containers
     , tasty
     , tasty-hedgehog
     , tasty-hunit

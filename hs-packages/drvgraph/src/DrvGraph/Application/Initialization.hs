@@ -2,6 +2,7 @@ module DrvGraph.Application.Initialization
     ( appInit
     ) where
 
+import Control.Concurrent.STM (atomically)
 import Control.Exception.Safe (IOException, MonadCatch)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.ByteString qualified as Bytes
@@ -16,6 +17,7 @@ import Network.HTTP.Client.TLS qualified as HttpTls
 import Network.URI (URI)
 import Network.URI qualified as Uri
 import Optics ((^.))
+import StmContainers.Map qualified as StmMap
 
 import DrvGraph.Application.Argument (AppOptions (..), AppOptionsWithDefault (..))
 import DrvGraph.Application.Execution.Environment (AppEnvironment (..))
@@ -34,10 +36,12 @@ appInit opts = do
                 }
 
     httpManager <- liftIO $ Http.newManager HttpTls.tlsManagerSettings
+    derivationCache <- liftIO $ atomically $ StmMap.new
 
     let env =
             AppEnvironment
                 { httpManager
+                , derivationCache
                 , binaryCacheServers = optsDefault ^. #substituters
                 }
 
