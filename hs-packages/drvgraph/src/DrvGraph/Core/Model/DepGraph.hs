@@ -64,9 +64,12 @@ empty =
 -- | Insert a @ObjNode@ with the given @StoreObjectPath@.
 insertObjNode :: StoreObjectPath -> ObjNode -> DepGraph -> DepGraph
 insertObjNode path obj graph =
-    graph
-        & #objNodes %~ Map.insert path obj
-        & #drvNodeIndegrees %~ updateIndegree
+    case Map.lookup path (graph ^. #objNodes) of
+        Just _ -> graph
+        Nothing ->
+            graph
+                & #objNodes %~ Map.insert path obj
+                & #drvNodeIndegrees %~ updateIndegree
   where
     updateIndegree = case obj of
         ObjExisted -> id
