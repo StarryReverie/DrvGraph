@@ -8,11 +8,10 @@ import Data.Function ((&))
 import Data.List qualified as List
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Maybe qualified as Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
-import Optics ((%~), (.~), (^.))
+import Optics ((%~), (^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation)
@@ -30,29 +29,57 @@ import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
 data WalkState = WalkState
     { depGraph :: DepGraph
-    , visitQueue :: Set QueueElement
-    , visited :: Set QueueElement
+    , toVisit :: Set QueuedElement
+    , visited :: Set VisitedElement
     }
 
-data QueueElement
+data QueuedElement
     = QueElemDrvOut
         { drvPath :: DerivingPath
         , outName :: Text
         }
+    | QueElemObjWithDrv
+        { objPath :: StoreObjectPath
+        , drvPath :: DerivingPath
+        }
     | QueElemObj
         { objPath :: StoreObjectPath
         }
+    | QueElemDrv
+        { drvPath :: DerivingPath
+        }
     deriving (Eq, Ord, Show)
 
-data StepDrvNodeResult = StepDrvNodeResult
-    { drvNode :: Maybe DrvNode
-    , objNodePair :: Maybe (StoreObjectPath, ObjNode)
-    , nextQueElems :: Set QueueElement
-    }
+data VisitedElement
+    = VisElemDrvOut
+        { drvPath :: DerivingPath
+        , outName :: Text
+        }
+    | VisElemObj
+        { objPath :: StoreObjectPath
+        }
+    | VisElemDrv
+        { drvPath :: DerivingPath
+        }
+    deriving (Eq, Ord, Show)
+
+data StepResult
+    = StepResDrvOut
+        { nexts :: Set QueuedElement
+        }
+    | StepResObj
+        { objPath :: StoreObjectPath
+        , objNode :: ObjNode
+        , nexts :: Set QueuedElement
+        }
+    | StepResDrv
+        { drvPath :: DerivingPath
+        , drvNode :: DrvNode
+        , nexts :: Set QueuedElement
+        }
+    deriving (Eq, Show)
 
 makeFieldLabelsNoPrefix ''WalkState
-makeFieldLabelsNoPrefix ''QueueElement
-makeFieldLabelsNoPrefix ''StepDrvNodeResult
 
 -- | Traverse the Nix store from a derivation's output, which coresponds to a
 -- store object path uniquely. Returns the dependency graph and the store object
@@ -64,7 +91,7 @@ walk storeDir drvPath outName = do
     let initial =
             WalkState
                 { depGraph = DepGraph.empty
-                , visitQueue = Set.singleton (QueElemDrvOut{drvPath, outName})
+                , toVisit = Set.singleton (QueElemDrvOut{drvPath, outName})
                 , visited = Set.empty
                 }
     WalkState{depGraph} <- walkLoop storeDir initial
@@ -77,97 +104,95 @@ walk storeDir drvPath outName = do
 walkLoop
     :: (CapDerivation m, CapStoreObject m, MonadCatch m)
     => FilePath -> WalkState -> m WalkState
-walkLoop storeDir state = do
-    (fronts, poppedState) <- do
-        let (fronts, poppedQueue) = popQueueFront 1 (state ^. #visitQueue)
-        let poppedState = state & #visitQueue .~ poppedQueue
-        pure (fronts, poppedState)
+walkLoop storeDir state = case popFront state of
+    (Nothing, _) -> pure state
+    (Just front, newState) -> do
+        res <- runStep storeDir front
+        let nextState = mergeResult newState res
+        walkLoop storeDir nextState
 
-    case fronts of
-        [] -> pure state
-        [front] -> do
-            nextState <- walkLoopStep storeDir front poppedState
-            walkLoop storeDir nextState
-        _ -> error "todo: change to concurrent traversal"
+popFront :: WalkState -> (Maybe QueuedElement, WalkState)
+popFront state = case Set.toList (Set.take 1 (state ^. #toVisit)) of
+    [] -> (Nothing, state)
+    front : _ ->
+        let visFront = queuedToVisitedElem front
+        in  if Set.member visFront (state ^. #visited)
+                then popFront (state & #toVisit %~ Set.drop 1)
+                else
+                    ( Just front
+                    , state
+                        & #toVisit %~ Set.drop 1
+                        & #visited %~ Set.insert visFront
+                    )
 
-popQueueFront :: Int -> Set a -> ([a], Set a)
-popQueueFront num queue = (Set.toList (Set.take num queue), Set.drop num queue)
+queuedToVisitedElem :: QueuedElement -> VisitedElement
+queuedToVisitedElem QueElemDrvOut{drvPath, outName} = VisElemDrvOut{drvPath, outName}
+queuedToVisitedElem QueElemObjWithDrv{objPath} = VisElemObj{objPath}
+queuedToVisitedElem QueElemObj{objPath} = VisElemObj{objPath}
+queuedToVisitedElem QueElemDrv{drvPath} = VisElemDrv{drvPath}
 
-walkLoopStep
+mergeResult :: WalkState -> StepResult -> WalkState
+mergeResult state res = case res of
+    StepResDrvOut{nexts} -> state & #toVisit %~ Set.union nexts
+    StepResObj{objPath, objNode, nexts} ->
+        state
+            & #toVisit %~ Set.union nexts
+            & #depGraph %~ DepGraph.insertObjNode objPath objNode
+    StepResDrv{drvPath, drvNode, nexts} ->
+        state
+            & #toVisit %~ Set.union nexts
+            & #depGraph %~ DepGraph.insertDrvNode drvPath drvNode
+
+runStep
     :: (CapDerivation m, CapStoreObject m, MonadCatch m)
-    => FilePath
-    -> QueueElement
-    -> WalkState
-    -> m WalkState
-walkLoopStep storeDir front state = do
-    if Set.member front (state ^. #visited)
-        then pure state
-        else runUnvisited
-  where
-    runUnvisited = do
-        let visitedState = state & #visited %~ Set.insert front
-        case front of
-            QueElemDrvOut{drvPath, outName} -> do
-                StepDrvNodeResult{drvNode, objNodePair, nextQueElems} <-
-                    stepDrvNode storeDir drvPath outName state
-                pure $
-                    visitedState
-                        & #depGraph %~ opMaybe drvNode (DepGraph.insertDrvNode drvPath)
-                        & #depGraph %~ opMaybe objNodePair (uncurry DepGraph.insertObjNode)
-                        & #visitQueue %~ Set.union nextQueElems
-            QueElemObj{objPath} -> do
-                (objNode, nextQueElems) <- stepObjNode storeDir objPath state
-                pure $
-                    visitedState
-                        & #depGraph %~ DepGraph.insertObjNode objPath objNode
-                        & #visitQueue %~ Set.union nextQueElems
+    => FilePath -> QueuedElement -> m StepResult
+runStep storeDir queElem = case queElem of
+    QueElemDrvOut{drvPath, outName} -> runStepDrvOut storeDir drvPath outName
+    QueElemObjWithDrv{objPath, drvPath} -> runStepObjWithDrv storeDir objPath drvPath
+    QueElemObj{objPath} -> runStepObj storeDir objPath
+    QueElemDrv{drvPath} -> runStepDrv storeDir drvPath
 
-    opMaybe (Just val) op = op val
-    opMaybe Nothing _ = id
-
-stepDrvNode
-    :: (CapDerivation m, CapStoreObject m, MonadCatch m)
-    => FilePath
-    -> DerivingPath
-    -> Text
-    -> WalkState
-    -> m StepDrvNodeResult
-stepDrvNode storeDir drvPath outName env = do
+runStepDrvOut
+    :: (CapDerivation m, MonadCatch m)
+    => FilePath -> DerivingPath -> Text -> m StepResult
+runStepDrvOut storeDir drvPath outName = do
     drv <- loadDrv storeDir drvPath
     objPath <- lookupOut drvPath drv outName
+    let next = QueElemObjWithDrv{objPath, drvPath}
+    pure StepResDrvOut{nexts = Set.singleton next}
 
-    if Maybe.isJust $ DepGraph.lookupObjNode objPath (env ^. #depGraph)
-        then pure emptyRes
-        else goQueryObj objPath drv
-  where
-    goQueryObj objPath drv = do
-        maybeObjRes <- queryObjNode storeDir objPath env
-        case maybeObjRes of
-            Just (objNode, nextQueElems) ->
-                pure emptyRes{objNodePair = Just (objPath, objNode), nextQueElems}
-            Nothing ->
-                if Maybe.isJust $ DepGraph.lookupDrvNode drvPath (env ^. #depGraph)
-                    then pure emptyRes{objNodePair = Just (objPath, ObjUnbuilt{drvPath})}
-                    else goDrvNode objPath drv
+runStepObjWithDrv
+    :: (CapStoreObject m, MonadCatch m)
+    => FilePath -> StoreObjectPath -> DerivingPath -> m StepResult
+runStepObjWithDrv storeDir objPath drvPath = do
+    maybeObjNode <- queryObjNode storeDir objPath
+    case maybeObjNode of
+        Just (objNode, nexts) -> pure StepResObj{objPath, objNode, nexts}
+        Nothing -> do
+            let objNode = ObjUnbuilt{drvPath}
+            let nexts = Set.singleton QueElemDrv{drvPath}
+            pure StepResObj{objPath, objNode, nexts}
 
-    goDrvNode objPath drv = do
-        paths <- resolveDrvInputObjPaths storeDir drvPath drv
-        pure
-            StepDrvNodeResult
-                { drvNode = Just DrvNode{inputObjPaths = Map.keysSet paths}
-                , objNodePair = Just (objPath, ObjUnbuilt{drvPath})
-                , nextQueElems =
-                    Map.elems paths
-                        & fmap (\(dp, out) -> QueElemDrvOut{drvPath = dp, outName = out})
-                        & Set.fromList
-                }
+runStepObj
+    :: (CapStoreObject m, MonadCatch m)
+    => FilePath -> StoreObjectPath -> m StepResult
+runStepObj storeDir objPath = do
+    maybeObjNode <- queryObjNode storeDir objPath
+    case maybeObjNode of
+        Just (objNode, nexts) -> pure StepResObj{objPath, objNode, nexts}
+        Nothing -> do
+            let opText = StoreObjectPath.toText objPath
+            throwAppErrorText $ "no narinfo for " <> opText <> ", don't know how to build"
 
-    emptyRes =
-        StepDrvNodeResult
-            { drvNode = Nothing
-            , objNodePair = Nothing
-            , nextQueElems = Set.empty
-            }
+runStepDrv
+    :: (CapDerivation m, MonadCatch m)
+    => FilePath -> DerivingPath -> m StepResult
+runStepDrv storeDir drvPath = do
+    drv <- loadDrv storeDir drvPath
+    paths <- resolveDrvInputObjPaths storeDir drvPath drv
+    let drvNode = DrvNode{inputObjPaths = Map.keysSet paths}
+    let nexts = Set.fromList $ uncurry QueElemDrvOut <$> Map.elems paths
+    pure StepResDrv{drvPath, drvNode, nexts}
 
 resolveDrvInputObjPaths
     :: (CapDerivation m, MonadCatch m)
@@ -195,27 +220,12 @@ resolveDrvInputObjPaths storeDir drvPath drv = do
 
     pure $ Map.fromList (concat inputObjPaths)
 
-stepObjNode
-    :: (CapStoreObject m, MonadCatch m)
-    => FilePath
-    -> StoreObjectPath
-    -> WalkState
-    -> m (ObjNode, Set QueueElement)
-stepObjNode storeDir objPath env = do
-    res <- queryObjNode storeDir objPath env
-    case res of
-        Just inner -> pure inner
-        Nothing -> do
-            let opText = StoreObjectPath.toText objPath
-            throwAppErrorText $ "no narinfo for " <> opText <> ", don't know how to build"
-
 queryObjNode
     :: (CapStoreObject m, MonadCatch m)
     => FilePath
     -> StoreObjectPath
-    -> WalkState
-    -> m (Maybe (ObjNode, Set QueueElement))
-queryObjNode storeDir objPath env = do
+    -> m (Maybe (ObjNode, Set QueuedElement))
+queryObjNode storeDir objPath = do
     let opText = StoreObjectPath.toText objPath
 
     isSynced <- do
@@ -231,13 +241,12 @@ queryObjNode storeDir objPath env = do
 
             pure $ flip fmap maybeNarInfo $ \NarInfo{narInfoRefs = refPaths} ->
                 let objNode = ObjUnsynced{refPaths}
-                    nexts =
-                        refPaths
-                            & Set.map (\p -> QueElemObj{objPath = p})
-                            & Set.filter (\e -> not $ Set.member e (env ^. #visited))
+                    nexts = Set.map (\p -> QueElemObj{objPath = p}) refPaths
                 in  (objNode, nexts)
 
-lookupOut :: (MonadThrow m) => DerivingPath -> Derivation -> Text -> m StoreObjectPath
+lookupOut
+    :: (MonadThrow m)
+    => DerivingPath -> Derivation -> Text -> m StoreObjectPath
 lookupOut drvPath drv outName =
     case Map.lookup outName $ drv ^. #outputs of
         Just output -> pure $ output ^. #path
@@ -247,9 +256,7 @@ lookupOut drvPath drv outName =
 
 loadDrv
     :: (CapDerivation m, MonadCatch m)
-    => FilePath
-    -> DerivingPath
-    -> m Derivation
+    => FilePath -> DerivingPath -> m Derivation
 loadDrv storeDir drvPath = do
     let dpText = DerivingPath.toText drvPath
     checkpointAppError ("could not load derivation " <> dpText) $ do
