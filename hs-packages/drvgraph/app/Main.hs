@@ -63,10 +63,10 @@ resolveFromInput CliOptions{rawArguments, outName} = do
     raw <- case rawArguments of
         (argument : _) -> pure (Text.pack argument)
         [] -> do
-            content <- liftIO TextIO.getContents
-            case filter (not . Text.null . Text.strip) (Text.lines content) of
-                (line : _) -> pure (Text.strip line)
-                [] -> throwAppErrorText "no deriving path provided as argument or on stdin"
+            content <- liftIO $ Text.strip <$> TextIO.getLine
+            if Text.null content
+                then throwAppErrorText "no deriving path provided as argument or on stdin"
+                else pure content
     (storeDir, drvPath, parsedOutName) <- throwAppEither (parseArgument raw)
     pure AppArguments{storeDir, drvPath, outName = resolveOutName outName parsedOutName}
 
