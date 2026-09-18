@@ -11,9 +11,11 @@ import UnliftIO (MonadUnliftIO)
 
 import DrvGraph.Application.Execution.CapDerivation qualified as CapDerivationImpl
 import DrvGraph.Application.Execution.CapStoreObject qualified as CapStoreObjectImpl
+import DrvGraph.Application.Execution.CapTaskExecutor qualified as CapTaskExecutor
 import DrvGraph.Application.Execution.Environment (AppEnvironment (..))
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation (..))
 import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (..), NarInfo)
+import DrvGraph.Core.Capability.CapTaskExecutor (CapTaskExecutor (..))
 import DrvGraph.Core.Model.Derivation (Derivation)
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
@@ -46,3 +48,7 @@ instance CapStoreObject App where
 
     queryRemoteStoreObject :: StoreObjectPath -> App (Maybe NarInfo)
     queryRemoteStoreObject = CapStoreObjectImpl.queryRemoteStoreObjectImpl
+
+instance CapTaskExecutor App where
+    withTaskExecutor :: ((App a -> App (), App (Maybe a)) -> App r) -> App r
+    withTaskExecutor = CapTaskExecutor.withTaskExecutorImpl

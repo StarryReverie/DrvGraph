@@ -20,10 +20,12 @@ library
       DrvGraph.Application.Execution
       DrvGraph.Application.Execution.CapDerivation
       DrvGraph.Application.Execution.CapStoreObject
+      DrvGraph.Application.Execution.CapTaskExecutor
       DrvGraph.Application.Execution.Environment
       DrvGraph.Application.Initialization
       DrvGraph.Core.Capability.CapDerivation
       DrvGraph.Core.Capability.CapStoreObject
+      DrvGraph.Core.Capability.CapTaskExecutor
       DrvGraph.Core.Error
       DrvGraph.Core.Model.DepGraph
       DrvGraph.Core.Model.Derivation

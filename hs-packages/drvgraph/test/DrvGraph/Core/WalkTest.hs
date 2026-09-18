@@ -13,6 +13,8 @@ import Data.Either (isLeft)
 import Data.Function ((&))
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Sequence (ViewL (EmptyL, (:<)), (|>))
+import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
@@ -20,9 +22,11 @@ import Data.Text qualified as Text
 import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 import Test.Tasty.HUnit (assertBool, assertFailure, (@?=))
+import UnliftIO.IORef qualified as IORef
 
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation (loadDerivation))
 import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (queryLocalStoreObject, queryRemoteStoreObject), NarInfo (..))
+import DrvGraph.Core.Capability.CapTaskExecutor (CapTaskExecutor (withTaskExecutor))
 import DrvGraph.Core.Error (AppEither, renderAppError, throwAppErrorText, tryAppError)
 import DrvGraph.Core.Model.DepGraph (DepGraph (..), DrvNode (..), ObjNode (..))
 import DrvGraph.Core.Model.DepGraph qualified as DepGraph
@@ -67,6 +71,28 @@ instance CapStoreObject (ReaderT TestEnv IO) where
     queryRemoteStoreObject stObjPath = do
         remoteNars <- asks (^. #remoteNars)
         pure $ Map.lookup stObjPath remoteNars
+
+instance CapTaskExecutor (ReaderT TestEnv IO) where
+    withTaskExecutor
+        :: ( ( ReaderT TestEnv IO a -> ReaderT TestEnv IO ()
+             , ReaderT TestEnv IO (Maybe a)
+             )
+             -> ReaderT TestEnv IO r
+           )
+        -> ReaderT TestEnv IO r
+    withTaskExecutor action = do
+        queue <- IORef.newIORef Seq.empty
+        action (submit queue, await queue)
+      where
+        submit queue task = do
+            IORef.atomicModifyIORef' queue (\q -> (q |> task, ()))
+        await queue = do
+            q <- IORef.readIORef queue
+            case Seq.viewl q of
+                EmptyL -> pure Nothing
+                task :< newQueue -> do
+                    IORef.atomicModifyIORef' queue (const (newQueue, ()))
+                    Just <$> task
 
 runWalk :: TestEnv -> DerivingPath -> Text -> IO (AppEither (DepGraph, StoreObjectPath))
 runWalk env drvPath outName =

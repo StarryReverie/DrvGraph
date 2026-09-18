@@ -18,6 +18,8 @@ import DrvGraph.Core.Capability.CapDerivation (CapDerivation)
 import DrvGraph.Core.Capability.CapDerivation qualified as CapDerivation
 import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject, NarInfo (..))
 import DrvGraph.Core.Capability.CapStoreObject qualified as CapStoreObject
+import DrvGraph.Core.Capability.CapTaskExecutor (CapTaskExecutor)
+import DrvGraph.Core.Capability.CapTaskExecutor qualified as CapTaskExecutor
 import DrvGraph.Core.Error (checkpointAppError, throwAppErrorText)
 import DrvGraph.Core.Model.DepGraph (DepGraph, DrvNode (..), ObjNode (ObjExisted, ObjUnbuilt, ObjUnsynced))
 import DrvGraph.Core.Model.DepGraph qualified as DepGraph
@@ -85,7 +87,7 @@ makeFieldLabelsNoPrefix ''WalkState
 -- store object path uniquely. Returns the dependency graph and the store object
 -- path of the given @(DerivingPath, Text)@ pair.
 walk
-    :: (CapDerivation m, CapStoreObject m, MonadCatch m)
+    :: (CapDerivation m, CapStoreObject m, CapTaskExecutor m, MonadCatch m)
     => FilePath -> DerivingPath -> Text -> m (DepGraph, StoreObjectPath)
 walk storeDir drvPath outName = do
     let initial =
@@ -94,7 +96,9 @@ walk storeDir drvPath outName = do
                 , toVisit = Set.singleton (QueElemDrvOut{drvPath, outName})
                 , visited = Set.empty
                 }
-    WalkState{depGraph} <- walkLoop storeDir initial
+
+    WalkState{depGraph} <- CapTaskExecutor.withTaskExecutor $ walkLoop storeDir initial
+
     objPath <- do
         drv <- loadDrv storeDir drvPath
         lookupOut drvPath drv outName
@@ -103,13 +107,17 @@ walk storeDir drvPath outName = do
 
 walkLoop
     :: (CapDerivation m, CapStoreObject m, MonadCatch m)
-    => FilePath -> WalkState -> m WalkState
-walkLoop storeDir state = case popFront state of
-    (Nothing, _) -> pure state
+    => FilePath -> WalkState -> (m StepResult -> m (), m (Maybe StepResult)) -> m WalkState
+walkLoop storeDir state (submit, await) = case popFront state of
+    (Nothing, newState) ->
+        await >>= \case
+            Nothing -> pure newState
+            Just res -> do
+                let nextState = mergeResult newState res
+                walkLoop storeDir nextState (submit, await)
     (Just front, newState) -> do
-        res <- runStep storeDir front
-        let nextState = mergeResult newState res
-        walkLoop storeDir nextState
+        submit $ runStep storeDir front
+        walkLoop storeDir newState (submit, await)
 
 popFront :: WalkState -> (Maybe QueuedElement, WalkState)
 popFront state = case Set.toList (Set.take 1 (state ^. #toVisit)) of
