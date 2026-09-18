@@ -76,7 +76,7 @@ library
       OverloadedLabels
       UndecidableInstances
       NoFieldSelectors
-  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
+  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       ansi-terminal
     , async
@@ -147,7 +147,7 @@ executable drvgraph
       OverloadedLabels
       UndecidableInstances
       NoFieldSelectors
-  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules
+  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       ansi-terminal
     , async
@@ -227,7 +227,7 @@ test-suite test
       OverloadedLabels
       UndecidableInstances
       NoFieldSelectors
-  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -Wno-incomplete-uni-patterns
+  ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -threaded -rtsopts -with-rtsopts=-N -Wno-incomplete-uni-patterns
   build-depends:
       ansi-terminal
     , async

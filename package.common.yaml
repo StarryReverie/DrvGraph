@@ -44,6 +44,9 @@
     - -Widentities
     - -Wredundant-constraints
     - -Werror=missing-home-modules
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
 
 - &test-ghc-options
   - -Wno-incomplete-uni-patterns
