@@ -201,18 +201,17 @@ resolveDrvInputObjPaths
     -> Derivation
     -> m (Map StoreObjectPath (DerivingPath, Text))
 resolveDrvInputObjPaths storeDir drvPath drv = do
-    let realInputDrvs = List.filter isSelf . Map.toList $ drv ^. #inputDrvs
+    let realInputDrvs = List.filter isNotSelf . Map.toList $ drv ^. #inputDrvs
           where
-            isSelf (p, _) = p /= drvPath
+            isNotSelf (p, _) = p /= drvPath
 
     inputs <- forM realInputDrvs $ \(inputDrvPath, outNames) -> do
         inputDrv <- loadDrv storeDir inputDrvPath
         pure (inputDrvPath, inputDrv, outNames)
 
-    inputObjPaths <- forM inputs $ \(inputDrvPath, inputDrv, outNames) -> do
-        let outs = inputDrv ^. #outputs
-        forM (Set.toList outNames) $ \outName -> do
-            case Map.lookup outName outs of
+    inputObjPaths <- forM inputs $ \(inputDrvPath, inputDrv, outNames) ->
+        forM (Set.toList outNames) $ \outName ->
+            case Map.lookup outName (inputDrv ^. #outputs) of
                 Just DerivationOutput{path} -> pure (path, (inputDrvPath, outName))
                 Nothing -> do
                     let dp = DerivingPath.toText inputDrvPath

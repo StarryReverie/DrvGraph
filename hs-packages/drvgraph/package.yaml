@@ -29,6 +29,7 @@ dependencies:
   - stm-containers
   - text
   - transformers
+  - unliftio
 
 library:
   source-dirs: src

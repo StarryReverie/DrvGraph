@@ -3,7 +3,7 @@ module DrvGraph.Application.Execution.CapStoreObject
     , queryRemoteStoreObjectImpl
     ) where
 
-import Control.Exception.Safe (IOException, MonadCatch)
+import Control.Exception.Safe (IOException, MonadCatch, MonadMask, bracket, throw)
 import Control.Monad (forM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
@@ -23,10 +23,12 @@ import Network.URI (URI (..))
 import Optics ((^.))
 import System.Directory qualified as Directory
 import System.FilePath ((</>))
+import UnliftIO (MonadUnliftIO)
+import UnliftIO.Async qualified as Async
 
 import DrvGraph.Application.Execution.Environment (AppEnvironment)
 import DrvGraph.Core.Capability.CapStoreObject (NarInfo (..))
-import DrvGraph.Core.Error (AppEither, checkpointAppError, rethrowAsAppError, throwAppEither, throwAppError, throwAppErrorText, throwEitherAsAppError, tryAppError)
+import DrvGraph.Core.Error (AppEither, checkpointAppError, rethrowAsAppError, throwAppEither, throwAppErrorText, throwEitherAsAppError)
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
@@ -41,7 +43,7 @@ queryLocalStoreObjectImpl storeDir objPath = do
         rethrowAsAppError @IOException (liftIO $ Directory.doesPathExist path)
 
 queryRemoteStoreObjectImpl
-    :: (MonadCatch m, MonadIO m, MonadReader AppEnvironment m)
+    :: (MonadMask m, MonadReader AppEnvironment m, MonadUnliftIO m)
     => StoreObjectPath -> m (Maybe NarInfo)
 queryRemoteStoreObjectImpl objPath = do
     servers <- asks (NonEmpty.toList . (^. #binaryCacheServers))
@@ -53,7 +55,7 @@ queryRemoteStoreObjectImpl objPath = do
             let request = initRequest{requestHeaders = [(HttpHeader.hUserAgent, "DrvGraph/0.1.0.0")]}
             pure (url, request)
 
-    sendRequestLoop requests
+    raceRequests requests
 
 appendUrl :: String -> URI -> URI
 appendUrl file server@URI{uriPath} = server{uriPath = p}
@@ -62,19 +64,24 @@ appendUrl file server@URI{uriPath} = server{uriPath = p}
         Just (_, c) | c == '/' -> uriPath <> file
         _ -> uriPath <> "/" <> file
 
-sendRequestLoop
-    :: (MonadCatch m, MonadIO m, MonadReader AppEnvironment m)
+raceRequests
+    :: (MonadMask m, MonadReader AppEnvironment m, MonadUnliftIO m)
     => [(URI, Request)] -> m (Maybe NarInfo)
-sendRequestLoop requests = go requests Nothing
+raceRequests requests =
+    bracket
+        (traverse (Async.async . uncurry sendRequest) requests)
+        (traverse Async.cancel)
+        (raceTasks Nothing . Set.fromList)
   where
-    go [] Nothing = pure Nothing
-    go [] (Just err) = throwAppError err
-    go ((url, request) : rs) lastErr = do
-        res <- tryAppError $ sendRequest url request
-        case res of
-            Left err -> go rs (Just err)
-            Right Nothing -> go rs lastErr
-            Right (Just narinfo) -> pure $ Just narinfo
+    raceTasks lastException tasks
+        | Set.null tasks = maybe (pure Nothing) throw lastException
+        | otherwise = do
+            (completed, res) <- Async.waitAnyCatch (Set.toList tasks)
+            let updatedTasks = Set.delete completed tasks
+            case res of
+                Left ex -> raceTasks (Just ex) updatedTasks
+                Right Nothing -> raceTasks lastException updatedTasks
+                Right (Just val) -> pure $ Just val
 
 sendRequest
     :: (MonadCatch m, MonadIO m, MonadReader AppEnvironment m)
@@ -82,9 +89,8 @@ sendRequest
 sendRequest uri request = do
     httpManager <- asks (^. #httpManager)
 
-    response <-
-        checkpointAppError ("could not send request to " <> uriText) $
-            rethrowAsAppError @HttpException (liftIO $ Http.httpLbs request httpManager)
+    response <- checkpointAppError ("could not send request to " <> uriText) $ do
+        rethrowAsAppError @HttpException (liftIO $ Http.httpLbs request httpManager)
 
     content <- checkpointAppError ("could not read response of " <> uriText) $ do
         case Http.responseStatus response of

@@ -7,6 +7,7 @@ module DrvGraph.Application.Execution
 import Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
+import UnliftIO (MonadUnliftIO)
 
 import DrvGraph.Application.Execution.CapDerivation qualified as CapDerivationImpl
 import DrvGraph.Application.Execution.CapStoreObject qualified as CapStoreObjectImpl
@@ -28,6 +29,7 @@ newtype App a = App (ReaderT AppEnvironment IO a)
         , MonadMask
         , MonadReader AppEnvironment
         , MonadThrow
+        , MonadUnliftIO
         )
 
 -- | Run the application with the given environment.

@@ -99,6 +99,7 @@ library
     , stm-containers
     , text
     , transformers
+    , unliftio
   default-language: GHC2024
 
 executable drvgraph
@@ -170,6 +171,7 @@ executable drvgraph
     , stm-containers
     , text
     , transformers
+    , unliftio
   default-language: GHC2024
 
 test-suite test
@@ -254,6 +256,7 @@ test-suite test
     , tasty-hunit
     , text
     , transformers
+    , unliftio
   default-language: GHC2024
   if !flag(in-nix-shell)
     build-tool-depends:
