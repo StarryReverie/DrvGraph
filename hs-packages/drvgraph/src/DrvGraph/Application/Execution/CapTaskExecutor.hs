@@ -3,19 +3,24 @@ module DrvGraph.Application.Execution.CapTaskExecutor
     ) where
 
 import Control.Exception.Safe (MonadCatch, MonadMask, SomeException, bracket, throw, tryAny)
+import Control.Monad.Reader (MonadReader, asks)
+import Optics ((^.))
 import UnliftIO (MonadIO, MonadUnliftIO)
 import UnliftIO.Async qualified as Async
-import UnliftIO.Concurrent qualified as Concurrent
 import UnliftIO.STM (TQueue, TVar)
 import UnliftIO.STM qualified as Stm
 
-withTaskExecutorImpl :: (MonadMask m, MonadUnliftIO m) => ((m a -> m (), m (Maybe a)) -> m r) -> m r
+import DrvGraph.Application.Execution.Environment (AppEnvironment)
+
+withTaskExecutorImpl
+    :: (MonadMask m, MonadReader AppEnvironment m, MonadUnliftIO m)
+    => ((m a -> m (), m (Maybe a)) -> m r) -> m r
 withTaskExecutorImpl action = do
     taskTx <- Stm.atomically Stm.newTQueue
     resultRx <- Stm.atomically Stm.newTQueue
     unfinishedTasks <- Stm.atomically $ Stm.newTVar 0
 
-    num <- Concurrent.getNumCapabilities
+    num <- asks (^. #numMaxJobs)
     bracket
         (traverse Async.async . replicate num $ taskWorker taskTx resultRx unfinishedTasks)
         (traverse Async.cancel)

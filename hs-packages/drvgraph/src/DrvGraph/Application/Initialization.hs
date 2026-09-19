@@ -12,12 +12,14 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe qualified as Maybe
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
+import Network.HTTP.Client (ManagerSettings (..))
 import Network.HTTP.Client qualified as Http
 import Network.HTTP.Client.TLS qualified as HttpTls
 import Network.URI (URI)
 import Network.URI qualified as Uri
 import Optics ((^.))
 import StmContainers.Map qualified as StmMap
+import UnliftIO.Concurrent qualified as Concurrent
 
 import DrvGraph.Application.Argument (AppOptions (..), AppOptionsWithDefault (..))
 import DrvGraph.Application.Execution.Environment (AppEnvironment (..))
@@ -25,6 +27,8 @@ import DrvGraph.Core.Error (checkpointAppError, rethrowAsAppError, throwAppError
 
 appInit :: (MonadCatch m, MonadIO m) => AppOptions -> m (AppEnvironment, AppOptionsWithDefault)
 appInit opts = do
+    numMaxJobs <- Concurrent.getNumCapabilities
+
     substituters <- maybe readSubstitutersFromNixConf pure (opts ^. #substituters)
 
     let optsDefault =
@@ -35,12 +39,18 @@ appInit opts = do
                 , substituters
                 }
 
-    httpManager <- liftIO $ Http.newManager HttpTls.tlsManagerSettings
+    let httpManagerSettings =
+            HttpTls.tlsManagerSettings
+                { managerConnCount = numMaxJobs `min` 24
+                }
+    httpManager <- liftIO $ Http.newManager httpManagerSettings
+
     derivationCache <- liftIO $ atomically StmMap.new
 
     let env =
             AppEnvironment
-                { httpManager
+                { numMaxJobs
+                , httpManager
                 , derivationCache
                 , binaryCacheServers = optsDefault ^. #substituters
                 }

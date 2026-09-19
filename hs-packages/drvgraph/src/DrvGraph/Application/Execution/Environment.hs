@@ -12,7 +12,8 @@ import DrvGraph.Core.Model.Derivation (Derivation)
 
 -- | Environment (i.e. context) of the application
 data AppEnvironment = AppEnvironment
-    { httpManager :: Manager
+    { numMaxJobs :: Int
+    , httpManager :: Manager
     , derivationCache :: StmMap.Map FilePath Derivation
     , binaryCacheServers :: NonEmpty URI
     }
