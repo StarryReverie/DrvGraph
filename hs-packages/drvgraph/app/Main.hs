@@ -47,76 +47,6 @@ appMainCli cli = do
 toAppOptions :: CliOptions -> AppOptions
 toAppOptions CliOptions{appOptions} = appOptions
 
-resolveArguments :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
-resolveArguments cli@CliOptions{useNix2, useNix3} =
-    case (useNix2, useNix3) of
-        (True, True) -> throwAppErrorText "cannot use -2/--nix2 and -3/--nix3 together"
-        (False, False) -> resolveFromInput cli
-        (True, False) -> resolveFromNix2 cli
-        (False, True) -> resolveFromNix3 cli
-
-resolveFromInput :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
-resolveFromInput CliOptions{rawArguments, outName} = do
-    raw <- case rawArguments of
-        (argument : _) -> pure (Text.pack argument)
-        [] -> do
-            content <- liftIO $ Text.strip <$> TextIO.getLine
-            if Text.null content
-                then throwAppErrorText "no deriving path provided as argument or on stdin"
-                else pure content
-    (storeDir, drvPath, parsedOutName) <- throwAppEither (parseArgument raw)
-    pure AppArguments{storeDir, drvPath, outName = resolveOutName outName parsedOutName}
-
-resolveFromNix2 :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
-resolveFromNix2 CliOptions{rawArguments, outName} = do
-    (exitCode, output, errOutput) <- runProcess "nix-instantiate" rawArguments
-    case exitCode of
-        ExitFailure _ -> throwAppErrorText $ "nix-instantiate failed: " <> Text.strip errOutput
-        ExitSuccess -> do
-            raw <- case filter (not . Text.null . Text.strip) (Text.lines output) of
-                (line : _) -> pure (Text.strip line)
-                [] -> throwAppErrorText "nix-instantiate produced no deriving path"
-            (storeDir, drvPath, parsedOutName) <- throwAppEither (parseArgument raw)
-            pure AppArguments{storeDir, drvPath, outName = resolveOutName outName parsedOutName}
-
-resolveFromNix3 :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
-resolveFromNix3 CliOptions{rawArguments, outName} = do
-    let applyExpr = "drv: \"${drv.drvPath}^${drv.outputName}\""
-    (exitCode, output, errOutput) <-
-        runProcess "nix" (["eval"] <> rawArguments <> ["--apply", applyExpr, "--raw"])
-    case exitCode of
-        ExitFailure _ -> throwAppErrorText $ "nix eval failed: " <> Text.strip errOutput
-        ExitSuccess -> do
-            (storeDir, drvPath, parsedOutName) <- throwAppEither . parseArgument $ Text.strip output
-            pure AppArguments{storeDir, drvPath, outName = resolveOutName outName parsedOutName}
-
--- | Parse @\<storeDir>/\<drvPath>[^\<outName>]@.
-parseArgument :: Text -> AppEither (FilePath, DerivingPath, Maybe Text)
-parseArgument raw = do
-    let (pathPart, outPart) = Text.breakOn "^" raw
-    let pathText = Text.unpack (Text.strip pathPart)
-    unless (Path.isAbsolute pathText) $
-        Left $
-            appError ("deriving path is not absolute: " <> Text.pack pathText)
-    drvPath <-
-        first (addAppErrorContext ("could not parse deriving path " <> Text.pack pathText)) $
-            DerivingPath.fromText (Text.pack (Path.takeFileName pathText))
-    let parsedOutName = case Text.strip (Text.drop 1 outPart) of
-            "" -> Nothing
-            name -> Just name
-    pure (Path.takeDirectory pathText, drvPath, parsedOutName)
-
--- | Prefer the output name embedded in the input, then @--out-name@, then @out@.
-resolveOutName :: Maybe Text -> Maybe Text -> Text
-resolveOutName cliOutName = fromMaybe (fromMaybe "out" cliOutName)
-
-runProcess :: (MonadCatch m, MonadIO m) => FilePath -> [String] -> m (ExitCode, Text, Text)
-runProcess command arguments = do
-    (exitCode, output, errOutput) <-
-        rethrowAsAppError @IOException . liftIO $
-            Process.readProcessWithExitCode command arguments ""
-    pure (exitCode, Text.pack output, Text.pack errOutput)
-
 allOptions :: ParserInfo CliOptions
 allOptions =
     Optparse.info (parseCliOptions <**> Optparse.helper) . fold $
@@ -217,3 +147,80 @@ parseOutName =
         , Optparse.metavar "NAME"
         , Optparse.help "Output name to use when it cannot be obtained from the input (default: out)"
         ]
+
+resolveArguments :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
+resolveArguments cli@CliOptions{useNix2, useNix3} =
+    case (useNix2, useNix3) of
+        (True, True) -> throwAppErrorText "cannot use -2/--nix2 and -3/--nix3 together"
+        (False, False) -> resolveFromInput cli
+        (True, False) -> resolveFromNix2 cli
+        (False, True) -> resolveFromNix3 cli
+
+resolveFromInput :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
+resolveFromInput CliOptions{rawArguments, outName} = do
+    raw <- case rawArguments of
+        (argument : _) -> pure (Text.pack argument)
+        [] -> do
+            content <- liftIO $ Text.strip <$> TextIO.getLine
+            if Text.null content
+                then throwAppErrorText "no deriving path provided as argument or on stdin"
+                else pure content
+    (storeDir, drvPath, parsedOutName) <- throwAppEither (parseArgument raw)
+    pure AppArguments{storeDir, drvPath, outName = resolveOutName outName parsedOutName}
+
+resolveFromNix2 :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
+resolveFromNix2 CliOptions{rawArguments, outName} = do
+    let cmdStr = unwords ("nix-instance":rawArguments)
+    liftIO $ putStrLn $ "[DrvGraph] Evaluating the derivation with: " <> cmdStr
+
+    (exitCode, output, errOutput) <- runProcess "nix-instantiate" rawArguments
+    case exitCode of
+        ExitFailure _ -> throwAppErrorText $ "nix-instantiate failed: " <> Text.strip errOutput
+        ExitSuccess -> do
+            raw <- case filter (not . Text.null . Text.strip) (Text.lines output) of
+                (line : _) -> pure (Text.strip line)
+                [] -> throwAppErrorText "nix-instantiate produced no deriving path"
+            (storeDir, drvPath, parsedOutName) <- throwAppEither (parseArgument raw)
+            pure AppArguments{storeDir, drvPath, outName = resolveOutName outName parsedOutName}
+
+resolveFromNix3 :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
+resolveFromNix3 CliOptions{rawArguments, outName} = do
+    let applyExpr = "drv: \"${drv.drvPath}^${drv.outputName}\""
+
+    let cmdStr = unwords $ ["nix eval"] <> rawArguments <> ["--apply \"drv: \\\"${drv.drvPath}^${drv.outputName}\\\"\" --raw"]
+    liftIO $ putStrLn $ "[DrvGraph] Evaluating the derivation with: " <> cmdStr
+
+    (exitCode, output, errOutput) <-
+        runProcess "nix" (["eval"] <> rawArguments <> ["--apply", applyExpr, "--raw"])
+    case exitCode of
+        ExitFailure _ -> throwAppErrorText $ "nix eval failed: " <> Text.strip errOutput
+        ExitSuccess -> do
+            (storeDir, drvPath, parsedOutName) <- throwAppEither . parseArgument $ Text.strip output
+            pure AppArguments{storeDir, drvPath, outName = resolveOutName outName parsedOutName}
+
+-- | Parse @\<storeDir>/\<drvPath>[^\<outName>]@.
+parseArgument :: Text -> AppEither (FilePath, DerivingPath, Maybe Text)
+parseArgument raw = do
+    let (pathPart, outPart) = Text.breakOn "^" raw
+    let pathText = Text.unpack (Text.strip pathPart)
+    unless (Path.isAbsolute pathText) $
+        Left $
+            appError ("deriving path is not absolute: " <> Text.pack pathText)
+    drvPath <-
+        first (addAppErrorContext ("could not parse deriving path " <> Text.pack pathText)) $
+            DerivingPath.fromText (Text.pack (Path.takeFileName pathText))
+    let parsedOutName = case Text.strip (Text.drop 1 outPart) of
+            "" -> Nothing
+            name -> Just name
+    pure (Path.takeDirectory pathText, drvPath, parsedOutName)
+
+-- | Prefer the output name embedded in the input, then @--out-name@, then @out@.
+resolveOutName :: Maybe Text -> Maybe Text -> Text
+resolveOutName cliOutName = fromMaybe (fromMaybe "out" cliOutName)
+
+runProcess :: (MonadCatch m, MonadIO m) => FilePath -> [String] -> m (ExitCode, Text, Text)
+runProcess command arguments = do
+    (exitCode, output, errOutput) <-
+        rethrowAsAppError @IOException . liftIO $
+            Process.readProcessWithExitCode command arguments ""
+    pure (exitCode, Text.pack output, Text.pack errOutput)
