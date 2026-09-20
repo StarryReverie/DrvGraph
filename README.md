@@ -57,6 +57,12 @@ Unbuilt drvgraph-0.1.0.0 v9lkj73m drv:bvahy93k
 
 Note that the result may differ, since some store paths may or may not exist.
 
+## Cache
+
+This project has a dedicated [Cachix substituter](https://app.cachix.org/organization/drvgraph/cache/drvgraph). You can optionally add the substituter URL <https://drvgraph.cachix.org/> to your configurations, either the vanilla `nix.settings.substituters` or `drvgraph`'s configuration file itself. Don't forget to add the public key `drvgraph.cachix.org-1:OngTuA0ekssxvRfZnRAvq1shmPRfJu3EO135RcbUvBg=`.
+
+Note that `drvgraph.cachix.org` depends on `nix-community.cachix.org` to avoid caching duplicated store paths. It's recommended to also add `nix-community.cachix.org` to your substituter lists to prevent unexpected cache miss.
+
 ## License
 
 This project is licensed under [GPL-3.0-or-later](./LICENSE) for all Haskell source codes (`./hs-packages`), [MIT](./LICENSE-NIX) for Nix source code (`flake.nix`, `nix/`), and [CC-BY-SA-4.0](./LICENSE-DOCS) for documentation (`docs/`).
