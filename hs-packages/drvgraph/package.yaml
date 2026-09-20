@@ -13,7 +13,6 @@ dependencies:
   - containers
   - directory
   - dlist
-  - exceptions
   - filepath
   - http-client
   - http-client-tls
