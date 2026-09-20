@@ -46,14 +46,15 @@ app args optsDefault = do
     let toLinesOpts =
             ToLinesOptions
                 { showFile = optsDefault ^. #showFile
+                , reversed = optsDefault ^. #reversed
                 }
-    let ls = renderEntryLine <$> treeToLines toLinesOpts tree
+    let ls = renderEntryLine (optsDefault ^. #reversed) <$> treeToLines toLinesOpts tree
     liftIO $ TextIO.putStrLn $ Text.unlines ls
 
     pure ()
 
-renderEntryLine :: EntryLine -> Text
-renderEntryLine EntryLine{isSubtreeLastChild, content} =
+renderEntryLine :: Bool -> EntryLine -> Text
+renderEntryLine reversed EntryLine{isSubtreeLastChild, content} =
     Text.concat (renderAncestor <$> reverse (drop 1 isSubtreeLastChild))
         <> maybe "" renderConnector (Maybe.listToMaybe isSubtreeLastChild)
         <> Text.intercalate " " (renderChunk <$> content)
@@ -61,7 +62,7 @@ renderEntryLine EntryLine{isSubtreeLastChild, content} =
     renderAncestor True = "   "
     renderAncestor False = "│  "
 
-    renderConnector True = "└─ "
+    renderConnector True = if reversed then "┌─ " else "└─ "
     renderConnector False = "├─ "
 
     renderChunk :: (Text, EntryLineColor) -> Text

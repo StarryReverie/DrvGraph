@@ -21,6 +21,7 @@ data AppOptions = AppOptions
     { showExisted :: Bool
     , showVisited :: Bool
     , showFile :: Bool
+    , reversed :: Bool
     , substituters :: Maybe (NonEmpty URI)
     }
 
@@ -28,6 +29,7 @@ data AppOptionsWithDefault = AppOptionsWithDefault
     { showExisted :: Bool
     , showVisited :: Bool
     , showFile :: Bool
+    , reversed :: Bool
     , substituters :: NonEmpty URI
     }
 

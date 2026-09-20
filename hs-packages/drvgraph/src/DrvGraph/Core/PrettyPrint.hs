@@ -34,6 +34,7 @@ data EntryLineColor = EntryLineColor
 
 data ToLinesOptions = ToLinesOptions
     { showFile :: Bool
+    , reversed :: Bool
     }
     deriving (Eq, Show)
 
@@ -42,7 +43,9 @@ makeFieldLabelsNoPrefix ''EntryLineColor
 makeFieldLabelsNoPrefix ''ToLinesOptions
 
 treeToLines :: ToLinesOptions -> StoreObjectTree -> [EntryLine]
-treeToLines opts = DList.toList . objTreeToLines opts []
+treeToLines opts = reverseCond . DList.toList . objTreeToLines opts []
+  where
+    reverseCond = if opts ^. #reversed then reverse else id
 
 objTreeToLines :: ToLinesOptions -> [Bool] -> StoreObjectTree -> DList EntryLine
 objTreeToLines opts pos StObjTreeExisted{objPath} =

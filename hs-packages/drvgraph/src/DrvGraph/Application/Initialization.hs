@@ -36,6 +36,7 @@ appInit opts = do
                 { showExisted = opts ^. #showExisted
                 , showVisited = opts ^. #showVisited
                 , showFile = opts ^. #showFile
+                , reversed = opts ^. #reversed
                 , substituters
                 }
 

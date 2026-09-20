@@ -27,10 +27,7 @@ import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 
 data CliOptions = CliOptions
-    { showExisted :: Bool
-    , showVisited :: Bool
-    , showFile :: Bool
-    , substituters :: Maybe (NonEmpty URI)
+    { appOptions :: AppOptions
     , useNix2 :: Bool
     , useNix3 :: Bool
     , outName :: Maybe Text
@@ -48,7 +45,7 @@ appMainCli cli = do
         Right args -> appMain args (toAppOptions cli)
 
 toAppOptions :: CliOptions -> AppOptions
-toAppOptions CliOptions{showExisted, showVisited, showFile, substituters} = AppOptions{..}
+toAppOptions CliOptions{appOptions} = appOptions
 
 resolveArguments :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
 resolveArguments cli@CliOptions{useNix2, useNix3} =
@@ -131,15 +128,21 @@ allOptions =
 
 parseCliOptions :: Parser CliOptions
 parseCliOptions = do
-    showExisted <- parseShowExisted
-    showVisited <- parseShowVisited
-    showFile <- parseShowFile
-    substituters <- parseSubstituters
+    appOptions <- parseAppOptions
     useNix2 <- parseNix2
     useNix3 <- parseNix3
     outName <- parseOutName
     rawArguments <- many (Optparse.strArgument (Optparse.metavar "ARGS..."))
     pure CliOptions{..}
+
+parseAppOptions :: Parser AppOptions
+parseAppOptions = do
+    showExisted <- parseShowExisted
+    showVisited <- parseShowVisited
+    showFile <- parseShowFile
+    reversed <- parseReversed
+    substituters <- parseSubstituters
+    pure AppOptions{..}
 
 parseShowExisted :: Parser Bool
 parseShowExisted =
@@ -160,6 +163,14 @@ parseShowFile =
     Optparse.switch . fold $
         [ Optparse.long "show-file"
         , Optparse.help "Whether to show full file names instead of hash prefixes"
+        ]
+
+parseReversed :: Parser Bool
+parseReversed =
+    Optparse.switch . fold $
+        [ Optparse.long "reversed"
+        , Optparse.short 'r'
+        , Optparse.help "Whether to print the tree structure in reversed order"
         ]
 
 parseSubstituters :: Parser (Maybe (NonEmpty URI))
