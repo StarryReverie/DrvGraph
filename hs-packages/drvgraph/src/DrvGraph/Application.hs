@@ -11,6 +11,7 @@ import Data.Text.IO qualified as TextIO
 import Optics ((^.))
 import System.Console.ANSI (ConsoleLayer (..), setSGRCode)
 import System.Console.ANSI.Codes (SGR (..))
+import System.IO (stderr)
 
 import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..), AppOptionsWithDefault)
 import DrvGraph.Application.Execution (App, runApp)
@@ -32,6 +33,7 @@ app args optsDefault = do
     let AppArguments{storeDir, drvPath, outName} = args
 
     (depGraph, rootObjPath) <- checkpointAppError "could not traverse nix store" $ do
+        liftIO $ TextIO.hPutStrLn stderr "[DrvGraph] Traversing Nix store"
         walk storeDir drvPath outName
 
     let treeOpts =

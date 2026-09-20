@@ -18,6 +18,7 @@ import Options.Applicative (Parser, ParserInfo)
 import Options.Applicative qualified as Optparse
 import System.Exit (ExitCode (..))
 import System.FilePath qualified as Path
+import System.IO (stderr)
 import System.Process qualified as Process
 
 import DrvGraph.Application (appMain)
@@ -170,8 +171,8 @@ resolveFromInput CliOptions{rawArguments, outName} = do
 
 resolveFromNix2 :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
 resolveFromNix2 CliOptions{rawArguments, outName} = do
-    let cmdStr = unwords ("nix-instance":rawArguments)
-    liftIO $ putStrLn $ "[DrvGraph] Evaluating the derivation with: " <> cmdStr
+    let cmdStr = Text.pack $ unwords ("nix-instance" : rawArguments)
+    liftIO $ TextIO.hPutStrLn stderr $ "[DrvGraph] Evaluating the derivation with: " <> cmdStr
 
     (exitCode, output, errOutput) <- runProcess "nix-instantiate" rawArguments
     case exitCode of
@@ -185,11 +186,10 @@ resolveFromNix2 CliOptions{rawArguments, outName} = do
 
 resolveFromNix3 :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
 resolveFromNix3 CliOptions{rawArguments, outName} = do
+    let cmdStr = Text.pack $ unwords $ ["nix eval"] <> rawArguments <> ["--apply \"drv: \\\"${drv.drvPath}^${drv.outputName}\\\"\" --raw"]
+    liftIO $ TextIO.hPutStrLn stderr $ "[DrvGraph] Evaluating the derivation with: " <> cmdStr
+
     let applyExpr = "drv: \"${drv.drvPath}^${drv.outputName}\""
-
-    let cmdStr = unwords $ ["nix eval"] <> rawArguments <> ["--apply \"drv: \\\"${drv.drvPath}^${drv.outputName}\\\"\" --raw"]
-    liftIO $ putStrLn $ "[DrvGraph] Evaluating the derivation with: " <> cmdStr
-
     (exitCode, output, errOutput) <-
         runProcess "nix" (["eval"] <> rawArguments <> ["--apply", applyExpr, "--raw"])
     case exitCode of
