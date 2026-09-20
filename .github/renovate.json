@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices"
+  ],
+  "packageRules": [
+    {
+      "description": "Nix Flake inputs",
+      "matchManagers": ["nix"],
+      "groupName": "nix-flake",
+      "commitMessagePrefix": "Flake: ",
+      "commitMessageAction": "Update",
+      "commitMessageTopic": "Nix Flake input {{depName}}",
+      "commitMessageExtra": "to {{newDigest}}"
+    }
+  ],
+  "haskell-cabal": {
+    "enabled": false
+  },
+  "nix": {
+    "enabled": true
+  }
+}
