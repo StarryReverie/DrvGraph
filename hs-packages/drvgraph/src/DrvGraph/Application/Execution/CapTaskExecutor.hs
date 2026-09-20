@@ -4,7 +4,7 @@ module DrvGraph.Application.Execution.CapTaskExecutor
 
 import Control.Concurrent.Async.Warden (Warden)
 import Control.Concurrent.Async.Warden qualified as Warden
-import Control.Exception.Safe (MonadCatch, MonadMask, SomeException, throw, tryAny)
+import Control.Exception.Safe (MonadCatch, SomeException, throw, tryAny)
 import Control.Monad (replicateM_)
 import Control.Monad.Reader (MonadReader, asks)
 import Optics ((^.))
@@ -15,7 +15,7 @@ import UnliftIO.STM qualified as Stm
 import DrvGraph.Application.Execution.Environment (AppEnvironment)
 
 withTaskExecutorImpl
-    :: (MonadMask m, MonadReader AppEnvironment m, MonadUnliftIO m)
+    :: (MonadCatch m, MonadReader AppEnvironment m, MonadUnliftIO m)
     => ((m a -> m (), m (Maybe a)) -> m r) -> m r
 withTaskExecutorImpl action = do
     taskTx <- Stm.atomically Stm.newTQueue
