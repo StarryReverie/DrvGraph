@@ -4,6 +4,8 @@
 
 Traverse and analyze the dependency graph of a Nix package, and show what needs to be built or fetched in a tree representation.
 
+![Example](./docs/assets/example.png)
+
 ## Usage
 
 There are 4 ways to use it:
