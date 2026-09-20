@@ -2,11 +2,13 @@ module DrvGraph.Application.Execution.CapTaskExecutor
     ( withTaskExecutorImpl
     ) where
 
-import Control.Exception.Safe (MonadCatch, MonadMask, SomeException, bracket, throw, tryAny)
+import Control.Concurrent.Async.Warden (Warden)
+import Control.Concurrent.Async.Warden qualified as Warden
+import Control.Exception.Safe (MonadCatch, MonadMask, SomeException, throw, tryAny)
+import Control.Monad (replicateM_)
 import Control.Monad.Reader (MonadReader, asks)
 import Optics ((^.))
-import UnliftIO (MonadIO, MonadUnliftIO)
-import UnliftIO.Async qualified as Async
+import UnliftIO (MonadIO, MonadUnliftIO (withRunInIO))
 import UnliftIO.STM (TQueue, TVar)
 import UnliftIO.STM qualified as Stm
 
@@ -21,10 +23,9 @@ withTaskExecutorImpl action = do
     unfinishedTasks <- Stm.atomically $ Stm.newTVar 0
 
     num <- asks (^. #numMaxJobs)
-    bracket
-        (traverse Async.async . replicate num $ taskWorker taskTx resultRx unfinishedTasks)
-        (traverse Async.cancel)
-        (const $ action (submit taskTx unfinishedTasks, await resultRx unfinishedTasks))
+    withWarden $ \warden -> do
+        replicateM_ num $ spawn_ warden $ taskWorker taskTx resultRx unfinishedTasks
+        action (submit taskTx unfinishedTasks, await resultRx unfinishedTasks)
   where
     submit taskTx unfinishedTasks task = do
         Stm.atomically $ do
@@ -55,3 +56,11 @@ taskWorker taskRx resultTx unfinishedTasks = loop
             Stm.writeTQueue resultTx res
             Stm.modifyTVar' unfinishedTasks (\x -> x - 1)
         loop
+
+withWarden :: (MonadUnliftIO m) => (Warden -> m a) -> m a
+withWarden action = withRunInIO $ \runInIO -> do
+    Warden.withWarden $ runInIO . action
+
+spawn_ :: (MonadUnliftIO m) => Warden -> m () -> m ()
+spawn_ warden action = withRunInIO $ \runInIO -> do
+    Warden.spawn_ warden $ runInIO action
