@@ -186,12 +186,12 @@ resolveFromNix2 CliOptions{rawArguments, outName} = do
 
 resolveFromNix3 :: (MonadCatch m, MonadIO m) => CliOptions -> m AppArguments
 resolveFromNix3 CliOptions{rawArguments, outName} = do
-    let cmdStr = Text.pack $ unwords $ ["nix eval"] <> rawArguments <> ["--apply \"drv: \\\"${drv.drvPath}^${drv.outputName}\\\"\" --raw"]
+    let cmdStr = Text.pack $ unwords $ ["nix --extra-experimental-features \"nix-command flakes\" eval"] <> rawArguments <> ["--apply \"drv: \\\"${drv.drvPath}^${drv.outputName}\\\"\" --raw"]
     liftIO $ TextIO.hPutStrLn stderr $ "[DrvGraph] Evaluating the derivation with: " <> cmdStr
 
     let applyExpr = "drv: \"${drv.drvPath}^${drv.outputName}\""
     (exitCode, output, errOutput) <-
-        runProcess "nix" (["eval"] <> rawArguments <> ["--apply", applyExpr, "--raw"])
+        runProcess "nix" (["--extra-experimental-features", "nix-command flakes", "eval"] <> rawArguments <> ["--apply", applyExpr, "--raw"])
     case exitCode of
         ExitFailure _ -> throwAppErrorText $ "nix eval failed: " <> Text.strip errOutput
         ExitSuccess -> do
