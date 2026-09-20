@@ -22,6 +22,7 @@ data AppOptions = AppOptions
     , showVisited :: Bool
     , showFile :: Bool
     , reversed :: Bool
+    , maxDepth :: Maybe Int
     , substituters :: Maybe (NonEmpty URI)
     }
 
@@ -30,6 +31,7 @@ data AppOptionsWithDefault = AppOptionsWithDefault
     , showVisited :: Bool
     , showFile :: Bool
     , reversed :: Bool
+    , maxDepth :: Maybe Int
     , substituters :: NonEmpty URI
     }
 

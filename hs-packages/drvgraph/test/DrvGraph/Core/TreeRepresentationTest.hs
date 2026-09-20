@@ -56,6 +56,7 @@ testDefaultOptions =
     TreeRepresentationOptions
         { includeExisted = True
         , includeVisited = True
+        , maxDepth = Nothing
         }
 
 unit_toDisplayTreeAllBranches :: IO ()

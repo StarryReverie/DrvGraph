@@ -141,6 +141,7 @@ parseAppOptions = do
     showVisited <- parseShowVisited
     showFile <- parseShowFile
     reversed <- parseReversed
+    maxDepth <- parseMaxDepth
     substituters <- parseSubstituters
     pure AppOptions{..}
 
@@ -171,6 +172,14 @@ parseReversed =
         [ Optparse.long "reversed"
         , Optparse.short 'r'
         , Optparse.help "Whether to print the tree structure in reversed order"
+        ]
+
+parseMaxDepth :: Parser (Maybe Int)
+parseMaxDepth =
+    Optparse.optional . Optparse.option Optparse.auto . fold $
+        [ Optparse.long "max-depth"
+        , Optparse.short 'd'
+        , Optparse.help "How deep the tree structure should be displayed"
         ]
 
 parseSubstituters :: Parser (Maybe (NonEmpty URI))

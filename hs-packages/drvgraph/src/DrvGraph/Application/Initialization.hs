@@ -37,6 +37,7 @@ appInit opts = do
                 , showVisited = opts ^. #showVisited
                 , showFile = opts ^. #showFile
                 , reversed = opts ^. #reversed
+                , maxDepth = opts ^. #maxDepth
                 , substituters
                 }
 

@@ -38,6 +38,7 @@ app args optsDefault = do
             TreeRepresentationOptions
                 { includeExisted = optsDefault ^. #showExisted
                 , includeVisited = optsDefault ^. #showVisited
+                , maxDepth = optsDefault ^. #maxDepth
                 }
     tree <- case depGraphToTreeRepresentation treeOpts depGraph rootObjPath of
         Just tree -> pure tree
