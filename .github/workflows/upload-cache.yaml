@@ -1,0 +1,46 @@
+name: Upload Cache
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-latest
+          - system: aarch64-linux
+            runner: ubuntu-24.04-arm
+          - system: aarch64-darwin
+            runner: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v23
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v17
+        with:
+          name: drvgraph
+          extraPullNames: nix-community
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build DrvGraph
+        run: |
+          nix build ".#packages.${{ matrix.system }}.drvgraph" -L --no-link --print-out-paths
