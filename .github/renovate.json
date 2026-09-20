@@ -5,13 +5,15 @@
   ],
   "packageRules": [
     {
+      "matchManagers": ["*"],
+      "commitMessagePrefix": "Deps: "
+    },
+    {
       "description": "Nix Flake inputs",
       "matchManagers": ["nix"],
-      "groupName": "nix-flake",
       "commitMessagePrefix": "Flake: ",
       "commitMessageAction": "Update",
-      "commitMessageTopic": "Nix Flake input {{depName}}",
-      "commitMessageExtra": "to {{newDigest}}"
+      "commitMessageTopic": "Nix Flake inputs",
     }
   ],
   "haskell-cabal": {
