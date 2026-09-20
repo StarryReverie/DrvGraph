@@ -59,8 +59,10 @@ let
     in
     exportedPkgs;
 in
-{
+lib.fix (self: {
   inherit haskellPkgs internalPkgs;
 
+  default = self.drvgraph;
+
   drvgraph = haskellLib.justStaticExecutables internalPkgs.drvgraph;
-}
+})
