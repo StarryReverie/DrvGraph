@@ -4,7 +4,7 @@
 
 Traverse and analyze the dependency graph of a Nix package, and show what needs to be built or fetched in a tree representation.
 
-![Example](./docs/assets/example.png)
+![Example](./docs/assets/example.jpg)
 
 ## Usage
 
@@ -69,4 +69,4 @@ Note that `drvgraph.cachix.org` depends on `nix-community.cachix.org` to avoid c
 
 ## License
 
-This project is licensed under [GPL-3.0-or-later](./LICENSE) for all Haskell source codes (`./hs-packages`), [MIT](./LICENSE-NIX) for Nix source code (`flake.nix`, `nix/`), and [CC-BY-SA-4.0](./LICENSE-DOCS) for documentation (`docs/`).
+This project is licensed under [GPL-3.0-or-later](./LICENSE) for all Haskell source codes (`./hs-packages/`), [MIT](./LICENSE-NIX) for Nix source code (`./flake.nix`, `./nix/`), and [CC-BY-SA-4.0](./LICENSE-DOCS) for documentation (`./docs/`).
