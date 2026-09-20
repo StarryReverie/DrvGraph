@@ -11,9 +11,9 @@ Traverse and analyze the dependency graph of a Nix package, and show what needs 
 There are 4 ways to use it:
 
 ```sh
-# Using Nix 3 and flakes
+# Use Nix 3 and flakes
 drvgraph -3 github:StarryReverie/DrvGraph#packages.x86_64-linux.drvgraph
-# Using Nix 2
+# Use Nix 2
 drvgraph -2 . -A legacyPackages.x86_64-linux.drvgraph
 # Use the derivation from the positional argument
 drvgraph $(nix-instantiate . -A legacyPackages.x86_64-linux.drvgraph)
@@ -61,7 +61,9 @@ Note that the result may differ, since some store paths may or may not exist.
 
 ## Cache
 
-This project has a dedicated [Cachix substituter](https://app.cachix.org/organization/drvgraph/cache/drvgraph). You can optionally add the substituter URL <https://drvgraph.cachix.org/> to your configurations, either the vanilla `nix.settings.substituters` or `drvgraph`'s configuration file itself. Don't forget to add the public key `drvgraph.cachix.org-1:OngTuA0ekssxvRfZnRAvq1shmPRfJu3EO135RcbUvBg=`.
+This project has a dedicated [Cachix substituter](https://app.cachix.org/organization/drvgraph/cache/drvgraph). It's highly recommended that you use the prebuilt cache, as manually building the package requires fetching GHC, which occupies a large amount of disk space.
+
+You can add the substituter URL <https://drvgraph.cachix.org/> to your configurations, along with the public key `drvgraph.cachix.org-1:OngTuA0ekssxvRfZnRAvq1shmPRfJu3EO135RcbUvBg=`.
 
 Note that `drvgraph.cachix.org` depends on `nix-community.cachix.org` to avoid caching duplicated store paths. It's recommended to also add `nix-community.cachix.org` to your substituter lists to prevent unexpected cache miss.
 
