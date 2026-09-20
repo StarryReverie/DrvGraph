@@ -37,6 +37,7 @@
     - OverloadedLabels
     - UndecidableInstances
     - NoFieldSelectors
+    - AllowAmbiguousTypes
   ghc-options:
     - -Wall
     - -Wcompat

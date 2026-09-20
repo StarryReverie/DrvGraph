@@ -1,5 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-
 module DrvGraph.Core.Error
     ( AppError
     , AppEither
