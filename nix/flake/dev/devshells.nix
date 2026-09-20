@@ -8,7 +8,7 @@
       ...
     }:
     {
-      devShells.default = pkgsDev.haskellPackages.shellFor {
+      devShells.default = config.legacyPackages.haskellPkgs.shellFor {
         packages =
           hpkgs:
           lib.pipe config.legacyPackages.internalPkgs [
