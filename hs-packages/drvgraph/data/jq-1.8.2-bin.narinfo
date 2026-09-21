@@ -1,0 +1,10 @@
+StorePath: /nix/store/hyz22a0l5b5kv7yfypw4ss6d36vbzg01-jq-1.8.2-bin
+URL: nar/1290dd5ljzik4bvjgsyhz5wd81xaybxavm4y26m9mch4fmgyha7a.nar.zst
+Compression: zstd
+FileHash: sha256:162df6li57sbff3n6n0r0h57vq1dqmv3fvb8gkj8bl2z518rfl6i
+FileSize: 12524
+NarHash: sha256:1290dd5ljzik4bvjgsyhz5wd81xaybxavm4y26m9mch4fmgyha7a
+NarSize: 35680
+References: 3yhkyf209xh9pb7754vi8rfjh8mygwlq-oniguruma-6.9.10-lib bkxqspw3p2d70my28z2skx5d84xkxi40-jq-1.8.2 hyz22a0l5b5kv7yfypw4ss6d36vbzg01-jq-1.8.2-bin lm3pknxi0ipypy3lxh1wmm8wvvavdwrn-glibc-2.42-84
+Deriver: irkdk0czab57050824z86jn34d4iagar-jq-1.8.2.drv
+Sig: cache.nixos.org-1:vb/X5kTNToUhQAHyPANfva6YkB5zuiW98afS7qOfRjh3kCb6j3Xx6XUFulfcvS3iq3n8lbpAVs2iMTYMWH6kCg==
