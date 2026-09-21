@@ -57,7 +57,7 @@ objTreeToLines opts pos StObjTreeExisted{objPath} =
                     <> makePackageNameTextChunks (objPath ^. #name)
                     <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
             }
-objTreeToLines opts pos StObjTreeUnsynced{objPath, refChildren} =
+objTreeToLines opts pos StObjTreeUnsynced{objPath, refChildren, deriver} =
     DList.cons
         ( EntryLine
             { isSubtreeLastChild = pos
@@ -65,6 +65,7 @@ objTreeToLines opts pos StObjTreeUnsynced{objPath, refChildren} =
                 [("Unsynced", EntryLineColor{color = Blue, intensity = Vivid})]
                     <> makePackageNameTextChunks (objPath ^. #name)
                     <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
+                    <> maybe [] (makeDerivingPathTextChunks (opts ^. #showFile)) deriver
             }
         )
         (collectChildrenLines opts pos refChildren)
