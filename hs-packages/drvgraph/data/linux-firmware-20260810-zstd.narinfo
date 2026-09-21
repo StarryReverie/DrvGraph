@@ -1,0 +1,9 @@
+StorePath: /nix/store/4jp4251sva17in4rhjzw560p7xdsnlb3-linux-firmware-20260810-zstd
+URL: nar/0rilb71zfl4wwcz4igjwrj5r2gbvxb1hv47zxzlvwi9lfvd58n65.nar.zst
+Compression: zstd
+FileHash: sha256:0ldawg6mrqrpl4f2azjmkj7pcw2hlhfknly69ydvdyxz1pwhgax2
+FileSize: 814223829
+NarHash: sha256:0rilb71zfl4wwcz4igjwrj5r2gbvxb1hv47zxzlvwi9lfvd58n65
+NarSize: 819681744
+Deriver: 9wjq923xmv9x7l3hdbklbfjyywv8ddgx-linux-firmware-20260810-zstd.drv
+Sig: cache.nixos.org-1:53xqXL7snCmwfmJmhhJ7XnB7JXf+/huNKN6dnUrx3Yd6+mFLiBBwa/HQ30FoVGMGMJHHzbmNbX2OJtJIgol7BQ==

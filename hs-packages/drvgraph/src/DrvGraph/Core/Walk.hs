@@ -247,8 +247,8 @@ queryObjNode storeDir objPath = do
                 let errMsg = "could not query remote store object path" <> opText
                 checkpointAppError errMsg $ CapStoreObject.queryRemoteStoreObject objPath
 
-            pure $ flip fmap maybeNarInfo $ \NarInfo{references = refPaths} ->
-                let objNode = ObjUnsynced{refPaths}
+            pure $ flip fmap maybeNarInfo $ \NarInfo{references = refPaths, deriver} ->
+                let objNode = ObjUnsynced{refPaths, deriver}
                     nexts = Set.map (\p -> QueElemObj{objPath = p}) refPaths
                 in  (objNode, nexts)
 

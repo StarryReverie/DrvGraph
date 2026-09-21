@@ -184,6 +184,7 @@ test-suite test
       DrvGraph.Core.ErrorTest
       DrvGraph.Core.Model.DerivationTest
       DrvGraph.Core.Model.DerivingPathTest
+      DrvGraph.Core.Model.NarInfoTest
       DrvGraph.Core.Model.Nix32HashTest
       DrvGraph.Core.Model.StoreObjectPathTest
       DrvGraph.Core.TreeRepresentationTest

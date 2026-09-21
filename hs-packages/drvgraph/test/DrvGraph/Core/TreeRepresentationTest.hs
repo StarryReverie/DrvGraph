@@ -65,11 +65,11 @@ unit_toDisplayTreeAllBranches = do
             DepGraph.empty
                 & applyObjNodeInsertions
                     [ (objRoot, ObjUnbuilt{drvPath = drvRoot})
-                    , (objA, ObjUnsynced{refPaths = Set.singleton objC})
+                    , (objA, ObjUnsynced{refPaths = Set.singleton objC, deriver = Nothing})
                     , (objB, ObjUnbuilt{drvPath = drvShared})
                     , (objC, ObjExisted)
                     , (objD, ObjUnbuilt{drvPath = drvShared})
-                    , (objE, ObjUnsynced{refPaths = Set.empty})
+                    , (objE, ObjUnsynced{refPaths = Set.empty, deriver = Nothing})
                     , (objG, ObjExisted)
                     ]
                 & applyDrvNodeInsertions
@@ -88,6 +88,7 @@ unit_toDisplayTreeAllBranches = do
                 [ StObjTreeUnsynced
                     { objPath = objA
                     , refChildren = [StObjTreeExisted{objPath = objC}]
+                    , deriver = Nothing
                     }
                 , StObjTreeUnbuilt
                     { objPath = objB
@@ -107,6 +108,7 @@ unit_toDisplayTreeAllBranches = do
                 , StObjTreeUnsynced
                     { objPath = objE
                     , refChildren = []
+                    , deriver = Nothing
                     }
                 ]
             }
@@ -116,7 +118,7 @@ unit_toDisplayTreeUnbuiltWithDrvLeaf = do
     let graph =
             DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objR, ObjUnsynced{refPaths = Set.singleton objO})
+                    [ (objR, ObjUnsynced{refPaths = Set.singleton objO, deriver = Nothing})
                     , (objO, ObjUnbuilt{drvPath = drvO})
                     ]
                 & applyDrvNodeInsertions
@@ -135,4 +137,5 @@ unit_toDisplayTreeUnbuiltWithDrvLeaf = do
                     , objChildren = []
                     }
                 ]
+            , deriver = Nothing
             }

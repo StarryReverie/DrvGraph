@@ -36,6 +36,7 @@ data ObjNode
     = ObjExisted
     | ObjUnsynced
         { refPaths :: Set StoreObjectPath
+        , deriver :: Maybe DerivingPath
         }
     | ObjUnbuilt
         { drvPath :: DerivingPath

@@ -154,7 +154,7 @@ unit_walkUnsyncedThenLocalLeaf :: IO ()
 unit_walkUnsyncedThenLocalLeaf = do
     let drvA = mkDerivation (mkInputs [(drvPathB, "out")]) (Map.fromList [("out", objPathA)])
     let drvB = mkDerivation Map.empty (Map.fromList [("out", objPathB)])
-    let narA = NarInfo{references = Set.fromList [objPathB]}
+    let narA = NarInfo{references = Set.fromList [objPathB], deriver = Nothing}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
@@ -167,7 +167,7 @@ unit_walkUnsyncedThenLocalLeaf = do
     depGraph
         @?= ( DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB]})
+                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB], deriver = Nothing})
                     , (objPathB, ObjExisted)
                     ]
             )
@@ -203,10 +203,10 @@ unit_walkUnsyncedDiamond = do
     let drvB = mkDerivation (mkInputs [(drvPathD, "out")]) (Map.fromList [("out", objPathB)])
     let drvC = mkDerivation (mkInputs [(drvPathD, "out")]) (Map.fromList [("out", objPathC)])
     let drvD = mkDerivation Map.empty (Map.fromList [("out", objPathD)])
-    let narA = NarInfo{references = Set.fromList [objPathB, objPathC]}
-    let narB = NarInfo{references = Set.fromList [objPathD]}
-    let narC = NarInfo{references = Set.fromList [objPathD]}
-    let narD = NarInfo{references = Set.fromList []}
+    let narA = NarInfo{references = Set.fromList [objPathB, objPathC], deriver = Nothing}
+    let narB = NarInfo{references = Set.fromList [objPathD], deriver = Nothing}
+    let narC = NarInfo{references = Set.fromList [objPathD], deriver = Nothing}
+    let narD = NarInfo{references = Set.fromList [], deriver = Nothing}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC), (drvPathD, drvD)]
@@ -218,10 +218,10 @@ unit_walkUnsyncedDiamond = do
     depGraph
         @?= ( DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB, objPathC]})
-                    , (objPathB, ObjUnsynced{refPaths = Set.fromList [objPathD]})
-                    , (objPathC, ObjUnsynced{refPaths = Set.fromList [objPathD]})
-                    , (objPathD, ObjUnsynced{refPaths = Set.empty})
+                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB, objPathC], deriver = Nothing})
+                    , (objPathB, ObjUnsynced{refPaths = Set.fromList [objPathD], deriver = Nothing})
+                    , (objPathC, ObjUnsynced{refPaths = Set.fromList [objPathD], deriver = Nothing})
+                    , (objPathD, ObjUnsynced{refPaths = Set.empty, deriver = Nothing})
                     ]
             )
     objPath @?= objPathA
@@ -231,7 +231,7 @@ unit_walkMultiOutputs = do
     let drvA = mkDerivation (mkInputs [(drvPathB, "out"), (drvPathB, "dev")]) (Map.fromList [("out", objPathA)])
     let drvB = mkDerivation (mkInputs [(drvPathC, "out")]) (Map.fromList [("out", objPathB), ("dev", objPathBDev)])
     let drvC = mkDerivation (mkInputs []) (Map.fromList [("out", objPathC)])
-    let narC = NarInfo{references = Set.empty}
+    let narC = NarInfo{references = Set.empty, deriver = Nothing}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC)]
@@ -246,7 +246,7 @@ unit_walkMultiOutputs = do
                     [ (objPathA, ObjUnbuilt{drvPath = drvPathA})
                     , (objPathB, ObjUnbuilt{drvPath = drvPathB})
                     , (objPathBDev, ObjUnbuilt{drvPath = drvPathB})
-                    , (objPathC, ObjUnsynced{refPaths = Set.empty})
+                    , (objPathC, ObjUnsynced{refPaths = Set.empty, deriver = Nothing})
                     ]
                 & applyDrvNodeInsertions
                     [ (drvPathA, DrvNode{inputObjPaths = Set.fromList [objPathB, objPathBDev]})
@@ -270,7 +270,7 @@ unit_walkMissingOutputNameError = do
 unit_walkUnsyncedRefWithoutDeriverError :: IO ()
 unit_walkUnsyncedRefWithoutDeriverError = do
     let drvA = mkDerivation Map.empty (Map.fromList [("out", objPathA)])
-    let narA = NarInfo{references = Set.fromList [objPathX]}
+    let narA = NarInfo{references = Set.fromList [objPathX], deriver = Nothing}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA)]
