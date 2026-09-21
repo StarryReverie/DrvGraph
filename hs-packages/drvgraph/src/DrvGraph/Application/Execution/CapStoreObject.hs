@@ -10,9 +10,7 @@ import Control.Monad.Reader (MonadReader, asks)
 import Data.ByteString.Lazy qualified as LazyBytes
 import Data.List qualified as List
 import Data.List.NonEmpty qualified as NonEmpty
-import Data.Maybe qualified as Maybe
 import Data.Set qualified as Set
-import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
 import Network.HTTP.Client (HttpException, Request (..))
@@ -27,8 +25,9 @@ import UnliftIO (MonadUnliftIO)
 import UnliftIO.Async qualified as Async
 
 import DrvGraph.Application.Execution.Environment (AppEnvironment)
-import DrvGraph.Core.Error (AppEither, checkpointAppError, rethrowAsAppError, throwAppEither, throwAppErrorText, throwEitherAsAppError)
+import DrvGraph.Core.Error (checkpointAppError, rethrowAsAppError, throwAppEither, throwAppErrorText, throwEitherAsAppError)
 import DrvGraph.Core.Model.NarInfo (NarInfo (..))
+import DrvGraph.Core.Model.NarInfo qualified as NarInfo
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
@@ -104,22 +103,7 @@ sendRequest uri request = do
 
     checkpointAppError ("could not parse narinfo from " <> uriText) $ do
         case content of
-            Just raw -> throwAppEither $ Just <$> parseNarInfo raw
+            Just raw -> throwAppEither $ Just <$> NarInfo.parse raw
             Nothing -> pure Nothing
   where
     uriText = Text.pack (show uri)
-
-parseNarInfo :: Text -> AppEither NarInfo
-parseNarInfo raw = do
-    let maybeReferences =
-            List.take 1 . List.filter Maybe.isJust $
-                Text.stripPrefix "References: " <$> Text.lines raw
-
-    let referencesLine = case maybeReferences of
-            [Just content] -> content
-            _ -> ""
-
-    let rawObjPaths = Text.words . Text.strip $ referencesLine
-    references <- Set.fromList <$> traverse StoreObjectPath.fromText rawObjPaths
-
-    pure NarInfo{references}
