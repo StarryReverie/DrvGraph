@@ -30,6 +30,7 @@ library
       DrvGraph.Core.Model.DepGraph
       DrvGraph.Core.Model.Derivation
       DrvGraph.Core.Model.DerivingPath
+      DrvGraph.Core.Model.NarInfo
       DrvGraph.Core.Model.Nix32Hash
       DrvGraph.Core.Model.StoreObjectPath
       DrvGraph.Core.PrettyPrint
@@ -86,7 +87,6 @@ library
     , containers
     , directory
     , dlist
-    , exceptions
     , filepath
     , http-client
     , http-client-tls
@@ -159,7 +159,6 @@ executable drvgraph
     , directory
     , dlist
     , drvgraph
-    , exceptions
     , filepath
     , http-client
     , http-client-tls
@@ -240,7 +239,6 @@ test-suite test
     , directory
     , dlist
     , drvgraph
-    , exceptions
     , file-embed
     , filepath
     , hedgehog

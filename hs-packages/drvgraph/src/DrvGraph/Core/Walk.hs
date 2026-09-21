@@ -16,7 +16,7 @@ import Optics.TH (makeFieldLabelsNoPrefix)
 
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation)
 import DrvGraph.Core.Capability.CapDerivation qualified as CapDerivation
-import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject, NarInfo (..))
+import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject)
 import DrvGraph.Core.Capability.CapStoreObject qualified as CapStoreObject
 import DrvGraph.Core.Capability.CapTaskExecutor (CapTaskExecutor)
 import DrvGraph.Core.Capability.CapTaskExecutor qualified as CapTaskExecutor
@@ -26,6 +26,7 @@ import DrvGraph.Core.Model.DepGraph qualified as DepGraph
 import DrvGraph.Core.Model.Derivation (Derivation (..), DerivationOutput (..))
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
+import DrvGraph.Core.Model.NarInfo (NarInfo (..))
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 
@@ -246,7 +247,7 @@ queryObjNode storeDir objPath = do
                 let errMsg = "could not query remote store object path" <> opText
                 checkpointAppError errMsg $ CapStoreObject.queryRemoteStoreObject objPath
 
-            pure $ flip fmap maybeNarInfo $ \NarInfo{narInfoRefs = refPaths} ->
+            pure $ flip fmap maybeNarInfo $ \NarInfo{references = refPaths} ->
                 let objNode = ObjUnsynced{refPaths}
                     nexts = Set.map (\p -> QueElemObj{objPath = p}) refPaths
                 in  (objNode, nexts)
