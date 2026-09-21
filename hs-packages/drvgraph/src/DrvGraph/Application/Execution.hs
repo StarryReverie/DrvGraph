@@ -14,10 +14,11 @@ import DrvGraph.Application.Execution.CapStoreObject qualified as CapStoreObject
 import DrvGraph.Application.Execution.CapTaskExecutor qualified as CapTaskExecutor
 import DrvGraph.Application.Execution.Environment (AppEnvironment (..))
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation (..))
-import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (..), NarInfo)
+import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (..))
 import DrvGraph.Core.Capability.CapTaskExecutor (CapTaskExecutor (..))
 import DrvGraph.Core.Model.Derivation (Derivation)
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
+import DrvGraph.Core.Model.NarInfo (NarInfo)
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 
 -- | Execution monad of the application.

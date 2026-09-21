@@ -27,8 +27,8 @@ import UnliftIO (MonadUnliftIO)
 import UnliftIO.Async qualified as Async
 
 import DrvGraph.Application.Execution.Environment (AppEnvironment)
-import DrvGraph.Core.Capability.CapStoreObject (NarInfo (..))
 import DrvGraph.Core.Error (AppEither, checkpointAppError, rethrowAsAppError, throwAppEither, throwAppErrorText, throwEitherAsAppError)
+import DrvGraph.Core.Model.NarInfo (NarInfo (..))
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
@@ -120,6 +120,6 @@ parseNarInfo raw = do
             _ -> ""
 
     let rawObjPaths = Text.words . Text.strip $ referencesLine
-    narInfoRefs <- Set.fromList <$> traverse StoreObjectPath.fromText rawObjPaths
+    references <- Set.fromList <$> traverse StoreObjectPath.fromText rawObjPaths
 
-    pure NarInfo{narInfoRefs}
+    pure NarInfo{references}

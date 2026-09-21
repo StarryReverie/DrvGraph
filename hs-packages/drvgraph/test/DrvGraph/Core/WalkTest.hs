@@ -25,7 +25,7 @@ import Test.Tasty.HUnit (assertBool, assertFailure, (@?=))
 import UnliftIO.IORef qualified as IORef
 
 import DrvGraph.Core.Capability.CapDerivation (CapDerivation (loadDerivation))
-import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (queryLocalStoreObject, queryRemoteStoreObject), NarInfo (..))
+import DrvGraph.Core.Capability.CapStoreObject (CapStoreObject (queryLocalStoreObject, queryRemoteStoreObject))
 import DrvGraph.Core.Capability.CapTaskExecutor (CapTaskExecutor (withTaskExecutor))
 import DrvGraph.Core.Error (AppEither, renderAppError, throwAppErrorText, tryAppError)
 import DrvGraph.Core.Model.DepGraph (DepGraph (..), DrvNode (..), ObjNode (..))
@@ -33,6 +33,7 @@ import DrvGraph.Core.Model.DepGraph qualified as DepGraph
 import DrvGraph.Core.Model.Derivation (Derivation (..), DerivationOutput (..))
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
+import DrvGraph.Core.Model.NarInfo (NarInfo (..))
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
 import DrvGraph.Core.Walk (walk)
@@ -153,7 +154,7 @@ unit_walkUnsyncedThenLocalLeaf :: IO ()
 unit_walkUnsyncedThenLocalLeaf = do
     let drvA = mkDerivation (mkInputs [(drvPathB, "out")]) (Map.fromList [("out", objPathA)])
     let drvB = mkDerivation Map.empty (Map.fromList [("out", objPathB)])
-    let narA = NarInfo{narInfoRefs = Set.fromList [objPathB]}
+    let narA = NarInfo{references = Set.fromList [objPathB]}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB)]
@@ -202,10 +203,10 @@ unit_walkUnsyncedDiamond = do
     let drvB = mkDerivation (mkInputs [(drvPathD, "out")]) (Map.fromList [("out", objPathB)])
     let drvC = mkDerivation (mkInputs [(drvPathD, "out")]) (Map.fromList [("out", objPathC)])
     let drvD = mkDerivation Map.empty (Map.fromList [("out", objPathD)])
-    let narA = NarInfo{narInfoRefs = Set.fromList [objPathB, objPathC]}
-    let narB = NarInfo{narInfoRefs = Set.fromList [objPathD]}
-    let narC = NarInfo{narInfoRefs = Set.fromList [objPathD]}
-    let narD = NarInfo{narInfoRefs = Set.fromList []}
+    let narA = NarInfo{references = Set.fromList [objPathB, objPathC]}
+    let narB = NarInfo{references = Set.fromList [objPathD]}
+    let narC = NarInfo{references = Set.fromList [objPathD]}
+    let narD = NarInfo{references = Set.fromList []}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC), (drvPathD, drvD)]
@@ -230,7 +231,7 @@ unit_walkMultiOutputs = do
     let drvA = mkDerivation (mkInputs [(drvPathB, "out"), (drvPathB, "dev")]) (Map.fromList [("out", objPathA)])
     let drvB = mkDerivation (mkInputs [(drvPathC, "out")]) (Map.fromList [("out", objPathB), ("dev", objPathBDev)])
     let drvC = mkDerivation (mkInputs []) (Map.fromList [("out", objPathC)])
-    let narC = NarInfo{narInfoRefs = Set.empty}
+    let narC = NarInfo{references = Set.empty}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA), (drvPathB, drvB), (drvPathC, drvC)]
@@ -269,7 +270,7 @@ unit_walkMissingOutputNameError = do
 unit_walkUnsyncedRefWithoutDeriverError :: IO ()
 unit_walkUnsyncedRefWithoutDeriverError = do
     let drvA = mkDerivation Map.empty (Map.fromList [("out", objPathA)])
-    let narA = NarInfo{narInfoRefs = Set.fromList [objPathX]}
+    let narA = NarInfo{references = Set.fromList [objPathX]}
     let env =
             defaultEnv
                 { derivations = Map.fromList [(drvPathA, drvA)]
