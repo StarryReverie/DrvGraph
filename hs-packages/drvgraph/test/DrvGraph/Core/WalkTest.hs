@@ -167,7 +167,7 @@ unit_walkUnsyncedThenLocalLeaf = do
     depGraph
         @?= ( DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB]})
+                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB], deriver = Nothing})
                     , (objPathB, ObjExisted)
                     ]
             )
@@ -218,10 +218,10 @@ unit_walkUnsyncedDiamond = do
     depGraph
         @?= ( DepGraph.empty
                 & applyObjNodeInsertions
-                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB, objPathC]})
-                    , (objPathB, ObjUnsynced{refPaths = Set.fromList [objPathD]})
-                    , (objPathC, ObjUnsynced{refPaths = Set.fromList [objPathD]})
-                    , (objPathD, ObjUnsynced{refPaths = Set.empty})
+                    [ (objPathA, ObjUnsynced{refPaths = Set.fromList [objPathB, objPathC], deriver = Nothing})
+                    , (objPathB, ObjUnsynced{refPaths = Set.fromList [objPathD], deriver = Nothing})
+                    , (objPathC, ObjUnsynced{refPaths = Set.fromList [objPathD], deriver = Nothing})
+                    , (objPathD, ObjUnsynced{refPaths = Set.empty, deriver = Nothing})
                     ]
             )
     objPath @?= objPathA
@@ -246,7 +246,7 @@ unit_walkMultiOutputs = do
                     [ (objPathA, ObjUnbuilt{drvPath = drvPathA})
                     , (objPathB, ObjUnbuilt{drvPath = drvPathB})
                     , (objPathBDev, ObjUnbuilt{drvPath = drvPathB})
-                    , (objPathC, ObjUnsynced{refPaths = Set.empty})
+                    , (objPathC, ObjUnsynced{refPaths = Set.empty, deriver = Nothing})
                     ]
                 & applyDrvNodeInsertions
                     [ (drvPathA, DrvNode{inputObjPaths = Set.fromList [objPathB, objPathBDev]})

@@ -24,6 +24,7 @@ data StoreObjectTree
     | StObjTreeUnsynced
         { objPath :: StoreObjectPath
         , refChildren :: [StoreObjectTree]
+        , deriver :: Maybe DerivingPath
         }
     | StObjTreeUnbuilt
         { objPath :: StoreObjectPath
@@ -105,14 +106,14 @@ recurseStoreObject opts depth graph objPath = do
                 Just ObjExisted
                     | depth == 0 || opts ^. #includeExisted -> pure $ Just StObjTreeExisted{objPath}
                     | otherwise -> pure Nothing
-                Just ObjUnsynced{refPaths} -> recurseForUnsynced refPaths
+                Just ObjUnsynced{refPaths, deriver} -> recurseForUnsynced refPaths deriver
                 Just ObjUnbuilt{drvPath} -> recurseForUnbuilt drvPath
                 Nothing -> pure Nothing
   where
-    recurseForUnsynced refPaths = do
+    recurseForUnsynced refPaths deriver = do
         refChildrenMaybes <- traverse (recurseStoreObject opts (depth + 1) graph) (Set.toList refPaths)
         let refChildren = Maybe.catMaybes refChildrenMaybes
-        pure $ Just StObjTreeUnsynced{objPath, refChildren}
+        pure $ Just StObjTreeUnsynced{objPath, refChildren, deriver}
 
     recurseForUnbuilt :: DerivingPath -> State ToDisplayTreeState (Maybe StoreObjectTree)
     recurseForUnbuilt drvPath =
