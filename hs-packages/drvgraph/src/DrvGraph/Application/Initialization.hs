@@ -20,6 +20,7 @@ import Network.URI qualified as Uri
 import Optics ((^.))
 import StmContainers.Map qualified as StmMap
 import UnliftIO.Concurrent qualified as Concurrent
+import UnliftIO.Directory qualified as Directory
 
 import DrvGraph.Application.Argument (AppOptions (..), AppOptionsWithDefault (..))
 import DrvGraph.Application.Execution.Environment (AppEnvironment (..))
@@ -61,21 +62,34 @@ appInit opts = do
 
 readSubstitutersFromNixConf :: (MonadCatch m, MonadIO m) => m (NonEmpty URI)
 readSubstitutersFromNixConf = do
-    content <- checkpointAppError "could not read content from /etc/nix/nix.conf" $ do
-        bytes <- rethrowAsAppError @IOException $ liftIO $ Bytes.readFile "/etc/nix/nix.conf"
+    cusotmSubstituters <-
+        Directory.doesFileExist "/etc/nix/nix.custom.conf" >>= \case
+            True -> readSubstitutersFromFile "/etc/nix/nix.custom.conf"
+            False -> pure Nothing
+
+    maybeSubstituters <- case cusotmSubstituters of
+        Just substituters -> pure $ Just substituters
+        Nothing -> readSubstitutersFromFile "/etc/nix/nix.conf"
+
+    case maybeSubstituters of
+        Just res -> pure res
+        Nothing -> throwAppErrorText "no substituter URLs from /etc/nix/nix.conf"
+
+readSubstitutersFromFile :: (MonadCatch m, MonadIO m) => FilePath -> m (Maybe (NonEmpty URI))
+readSubstitutersFromFile path = do
+    content <- checkpointAppError ("could not read content from " <> Text.pack path) $ do
+        bytes <- rethrowAsAppError @IOException $ liftIO $ Bytes.readFile path
         throwEitherAsAppError $ TextEncoding.decodeUtf8' bytes
 
-    checkpointAppError "could not get valid substituters from /etc/nix/nix.conf" $ do
+    checkpointAppError ("could not get valid substituters from " <> Text.pack path) $ do
         let values =
                 content
                     & Text.lines
                     & Maybe.mapMaybe (Text.stripPrefix "substituters")
                     & concatMap (Text.words . Text.dropWhile (\c -> c == ' ' || c == '='))
 
-        maybeSubstituters <- case NonEmpty.nonEmpty values of
-            Just maybeSubstituters -> pure maybeSubstituters
-            Nothing -> throwAppErrorText "substituter list is empty"
-
-        case traverse (Uri.parseAbsoluteURI . Text.unpack) maybeSubstituters of
-            Just substituters -> pure substituters
-            Nothing -> throwAppErrorText "substituter URLs are invalid"
+        case NonEmpty.nonEmpty values of
+            Just s -> case traverse (Uri.parseAbsoluteURI . Text.unpack) s of
+                Just substituters -> pure $ Just substituters
+                Nothing -> throwAppErrorText "substituter URLs are invalid"
+            Nothing -> pure Nothing
