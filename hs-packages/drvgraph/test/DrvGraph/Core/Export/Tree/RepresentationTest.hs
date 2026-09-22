@@ -1,4 +1,4 @@
-module DrvGraph.Core.TreeRepresentationTest
+module DrvGraph.Core.Export.Tree.RepresentationTest
     ( unit_toDisplayTreeAllBranches
     , unit_toDisplayTreeUnbuiltWithDrvLeaf
     ) where
@@ -9,13 +9,13 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Test.Tasty.HUnit ((@?=))
 
+import DrvGraph.Core.Export.Tree.Representation (DerivationTree (..), StoreObjectTree (..), ToTreeOptions (..), toTree)
 import DrvGraph.Core.Model.DepGraph (DepGraph, DrvNode (..), ObjNode (..))
 import DrvGraph.Core.Model.DepGraph qualified as DepGraph
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
-import DrvGraph.Core.TreeRepresentation (DerivationTree (..), StoreObjectTree (..), TreeRepresentationOptions (..), depGraphToTreeRepresentation)
 
 fakeHash :: Int -> Text
 fakeHash i = Text.replicate 32 (Text.singleton (alphaNums !! i))
@@ -51,9 +51,9 @@ applyObjNodeInsertions pairs graph = foldr (uncurry DepGraph.insertObjNode) grap
 applyDrvNodeInsertions :: [(DerivingPath, DrvNode)] -> DepGraph -> DepGraph
 applyDrvNodeInsertions pairs graph = foldr (uncurry DepGraph.insertDrvNode) graph pairs
 
-testDefaultOptions :: TreeRepresentationOptions
+testDefaultOptions :: ToTreeOptions
 testDefaultOptions =
-    TreeRepresentationOptions
+    ToTreeOptions
         { includeExisted = True
         , includeVisited = True
         , maxDepth = Nothing
@@ -78,7 +78,7 @@ unit_toDisplayTreeAllBranches = do
                     , (drvShared, DrvNode{inputObjPaths = Set.fromList [objC, objG]})
                     ]
 
-    let Just actual = depGraphToTreeRepresentation testDefaultOptions graph objRoot
+    let Just actual = toTree testDefaultOptions graph objRoot
 
     actual
         @?= StObjTreeUnbuiltWithDrv
@@ -125,7 +125,7 @@ unit_toDisplayTreeUnbuiltWithDrvLeaf = do
                     [ (drvO, DrvNode{inputObjPaths = Set.empty})
                     ]
 
-    let Just actual = depGraphToTreeRepresentation testDefaultOptions graph objR
+    let Just actual = toTree testDefaultOptions graph objR
 
     actual
         @?= StObjTreeUnsynced

@@ -1,8 +1,8 @@
-module DrvGraph.Core.PrettyPrint
+module DrvGraph.Core.Export.Tree.Flatten
     ( EntryLine (..)
     , EntryLineColor (..)
-    , ToLinesOptions (..)
-    , treeToLines
+    , FlattenTreeOptions (..)
+    , flattenTree
     ) where
 
 import Data.DList (DList)
@@ -13,12 +13,12 @@ import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 import System.Console.ANSI (Color (Blue, Cyan, Green, Magenta, White, Yellow), ColorIntensity (Dull, Vivid))
 
+import DrvGraph.Core.Export.Tree.Representation (DerivationTree (..), StoreObjectTree (..))
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
-import DrvGraph.Core.TreeRepresentation (DerivationTree (..), StoreObjectTree (..))
 
 data EntryLine = EntryLine
     { isSubtreeLastChild :: [Bool]
@@ -32,7 +32,7 @@ data EntryLineColor = EntryLineColor
     }
     deriving (Eq, Show)
 
-data ToLinesOptions = ToLinesOptions
+data FlattenTreeOptions = FlattenTreeOptions
     { showFile :: Bool
     , reversed :: Bool
     }
@@ -40,14 +40,14 @@ data ToLinesOptions = ToLinesOptions
 
 makeFieldLabelsNoPrefix ''EntryLine
 makeFieldLabelsNoPrefix ''EntryLineColor
-makeFieldLabelsNoPrefix ''ToLinesOptions
+makeFieldLabelsNoPrefix ''FlattenTreeOptions
 
-treeToLines :: ToLinesOptions -> StoreObjectTree -> [EntryLine]
-treeToLines opts = reverseCond . DList.toList . objTreeToLines opts []
+flattenTree :: FlattenTreeOptions -> StoreObjectTree -> [EntryLine]
+flattenTree opts = reverseCond . DList.toList . objTreeToLines opts []
   where
     reverseCond = if opts ^. #reversed then reverse else id
 
-objTreeToLines :: ToLinesOptions -> [Bool] -> StoreObjectTree -> DList EntryLine
+objTreeToLines :: FlattenTreeOptions -> [Bool] -> StoreObjectTree -> DList EntryLine
 objTreeToLines opts pos StObjTreeExisted{objPath} =
     DList.singleton
         EntryLine
@@ -102,7 +102,7 @@ objTreeToLines opts pos StObjTreeVisited{objPath} =
                     <> makeStoreObjectPathTextChunks (opts ^. #showFile) objPath
             }
 
-drvTreeToLines :: ToLinesOptions -> [Bool] -> DerivationTree -> DList EntryLine
+drvTreeToLines :: FlattenTreeOptions -> [Bool] -> DerivationTree -> DList EntryLine
 drvTreeToLines opts pos DrvTreeUnbuilt{drvPath, objChildren} =
     DList.cons
         ( EntryLine
@@ -122,7 +122,7 @@ drvTreeToLines _ pos DrvTreeVisited{drvPath} =
                     <> makeDerivingPathTextChunks True drvPath
             }
 
-collectChildrenLines :: ToLinesOptions -> [Bool] -> [StoreObjectTree] -> DList EntryLine
+collectChildrenLines :: FlattenTreeOptions -> [Bool] -> [StoreObjectTree] -> DList EntryLine
 collectChildrenLines opts pos =
     lastAwaredFoldr
         ((<>) . (\(child, isLast) -> objTreeToLines opts (isLast : pos) child))
