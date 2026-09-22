@@ -1,8 +1,8 @@
 module DrvGraph.Core.Export.Tree.Representation
     ( StoreObjectTree (..)
     , DerivationTree (..)
-    , TreeRepresentationOptions (..)
-    , depGraphToTreeRepresentation
+    , ToTreeOptions (..)
+    , toTree
     ) where
 
 import Control.Monad.State.Strict (State, evalState, gets, modify)
@@ -50,7 +50,7 @@ data DerivationTree
         }
     deriving (Eq, Show)
 
-data TreeRepresentationOptions = TreeRepresentationOptions
+data ToTreeOptions = ToTreeOptions
     { includeExisted :: Bool
     , includeVisited :: Bool
     , maxDepth :: Maybe Int
@@ -59,37 +59,37 @@ data TreeRepresentationOptions = TreeRepresentationOptions
 
 makeFieldLabelsNoPrefix ''StoreObjectTree
 makeFieldLabelsNoPrefix ''DerivationTree
-makeFieldLabelsNoPrefix ''TreeRepresentationOptions
+makeFieldLabelsNoPrefix ''ToTreeOptions
 
-data ToDisplayTreeState = ToDisplayTreeState
+data ToTreeState = ToTreeState
     { visitedObjPaths :: Set StoreObjectPath
     , visitedDrvPaths :: Set DerivingPath
     }
 
-makeFieldLabelsNoPrefix ''ToDisplayTreeState
+makeFieldLabelsNoPrefix ''ToTreeState
 
 -- | Convert a traversal from a @StoreObjectPath@ in a @DepGraph@ to a tree
 -- structure for displaying.
-depGraphToTreeRepresentation
-    :: TreeRepresentationOptions
+toTree
+    :: ToTreeOptions
     -> DepGraph
     -> StoreObjectPath
     -> Maybe StoreObjectTree
-depGraphToTreeRepresentation opts graph path =
+toTree opts graph path =
     evalState (recurseStoreObject opts 0 graph path) initial
   where
     initial =
-        ToDisplayTreeState
+        ToTreeState
             { visitedObjPaths = Set.empty
             , visitedDrvPaths = Set.empty
             }
 
 recurseStoreObject
-    :: TreeRepresentationOptions
+    :: ToTreeOptions
     -> Int
     -> DepGraph
     -> StoreObjectPath
-    -> State ToDisplayTreeState (Maybe StoreObjectTree)
+    -> State ToTreeState (Maybe StoreObjectTree)
 recurseStoreObject opts depth graph objPath = do
     let isInRange = isInDepthRange (opts ^. #maxDepth) depth
     isVisited <- gets $ Set.member objPath . (^. #visitedObjPaths)
@@ -115,7 +115,7 @@ recurseStoreObject opts depth graph objPath = do
         let refChildren = Maybe.catMaybes refChildrenMaybes
         pure $ Just StObjTreeUnsynced{objPath, refChildren, deriver}
 
-    recurseForUnbuilt :: DerivingPath -> State ToDisplayTreeState (Maybe StoreObjectTree)
+    recurseForUnbuilt :: DerivingPath -> State ToTreeState (Maybe StoreObjectTree)
     recurseForUnbuilt drvPath =
         case DepGraph.lookupDrvNodeAndIndegree drvPath graph of
             Just (drvNode, indegree)
@@ -130,11 +130,11 @@ recurseStoreObject opts depth graph objPath = do
             Nothing -> pure Nothing
 
 recurseDerivation
-    :: TreeRepresentationOptions
+    :: ToTreeOptions
     -> Int
     -> DepGraph
     -> DerivingPath
-    -> (State ToDisplayTreeState) (Maybe DerivationTree)
+    -> (State ToTreeState) (Maybe DerivationTree)
 recurseDerivation opts depth graph drvPath = do
     let isInRange = isInDepthRange (opts ^. #maxDepth) depth
     isVisited <- gets $ Set.member drvPath . (^. #visitedDrvPaths)

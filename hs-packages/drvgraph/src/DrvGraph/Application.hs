@@ -18,7 +18,7 @@ import DrvGraph.Application.Execution (App, runApp)
 import DrvGraph.Application.Initialization (appInit)
 import DrvGraph.Core.Error (checkpointAppError, renderAppError, throwAppErrorText, tryAppError)
 import DrvGraph.Core.Export.Tree.PrettyPrint (EntryLine (..), EntryLineColor (..), ToLinesOptions (..), treeToLines)
-import DrvGraph.Core.Export.Tree.Representation (TreeRepresentationOptions (..), depGraphToTreeRepresentation)
+import DrvGraph.Core.Export.Tree.Representation (ToTreeOptions (..), toTree)
 import DrvGraph.Core.Walk (walk)
 
 appMain :: (MonadCatch m, MonadIO m) => AppArguments -> AppOptions -> m ()
@@ -37,12 +37,12 @@ app args optsDefault = do
         walk storeDir drvPath outName
 
     let treeOpts =
-            TreeRepresentationOptions
+            ToTreeOptions
                 { includeExisted = optsDefault ^. #showExisted
                 , includeVisited = optsDefault ^. #showVisited
                 , maxDepth = optsDefault ^. #maxDepth
                 }
-    tree <- case depGraphToTreeRepresentation treeOpts depGraph rootObjPath of
+    tree <- case toTree treeOpts depGraph rootObjPath of
         Just tree -> pure tree
         Nothing -> throwAppErrorText "no valid tree display"
 
