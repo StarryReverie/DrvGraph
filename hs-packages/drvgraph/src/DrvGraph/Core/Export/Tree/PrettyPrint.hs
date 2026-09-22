@@ -1,4 +1,4 @@
-module DrvGraph.Core.PrettyPrint
+module DrvGraph.Core.Export.Tree.PrettyPrint
     ( EntryLine (..)
     , EntryLineColor (..)
     , ToLinesOptions (..)
@@ -13,12 +13,12 @@ import Optics ((^.))
 import Optics.TH (makeFieldLabelsNoPrefix)
 import System.Console.ANSI (Color (Blue, Cyan, Green, Magenta, White, Yellow), ColorIntensity (Dull, Vivid))
 
+import DrvGraph.Core.Export.Tree.Representation (DerivationTree (..), StoreObjectTree (..))
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
-import DrvGraph.Core.TreeRepresentation (DerivationTree (..), StoreObjectTree (..))
 
 data EntryLine = EntryLine
     { isSubtreeLastChild :: [Bool]

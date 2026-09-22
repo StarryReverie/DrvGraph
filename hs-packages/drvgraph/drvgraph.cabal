@@ -27,14 +27,14 @@ library
       DrvGraph.Core.Capability.CapStoreObject
       DrvGraph.Core.Capability.CapTaskExecutor
       DrvGraph.Core.Error
+      DrvGraph.Core.Export.Tree.PrettyPrint
+      DrvGraph.Core.Export.Tree.Representation
       DrvGraph.Core.Model.DepGraph
       DrvGraph.Core.Model.Derivation
       DrvGraph.Core.Model.DerivingPath
       DrvGraph.Core.Model.NarInfo
       DrvGraph.Core.Model.Nix32Hash
       DrvGraph.Core.Model.StoreObjectPath
-      DrvGraph.Core.PrettyPrint
-      DrvGraph.Core.TreeRepresentation
       DrvGraph.Core.Walk
   other-modules:
       Paths_drvgraph
@@ -182,12 +182,12 @@ test-suite test
   main-is: Spec.hs
   other-modules:
       DrvGraph.Core.ErrorTest
+      DrvGraph.Core.Export.Tree.RepresentationTest
       DrvGraph.Core.Model.DerivationTest
       DrvGraph.Core.Model.DerivingPathTest
       DrvGraph.Core.Model.NarInfoTest
       DrvGraph.Core.Model.Nix32HashTest
       DrvGraph.Core.Model.StoreObjectPathTest
-      DrvGraph.Core.TreeRepresentationTest
       DrvGraph.Core.WalkTest
       Paths_drvgraph
   hs-source-dirs:

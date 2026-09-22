@@ -1,4 +1,4 @@
-module DrvGraph.Core.TreeRepresentation
+module DrvGraph.Core.Export.Tree.Representation
     ( StoreObjectTree (..)
     , DerivationTree (..)
     , TreeRepresentationOptions (..)

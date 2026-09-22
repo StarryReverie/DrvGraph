@@ -1,4 +1,4 @@
-module DrvGraph.Core.TreeRepresentationTest
+module DrvGraph.Core.Export.Tree.RepresentationTest
     ( unit_toDisplayTreeAllBranches
     , unit_toDisplayTreeUnbuiltWithDrvLeaf
     ) where
@@ -9,13 +9,13 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Test.Tasty.HUnit ((@?=))
 
+import DrvGraph.Core.Export.Tree.Representation (DerivationTree (..), StoreObjectTree (..), TreeRepresentationOptions (..), depGraphToTreeRepresentation)
 import DrvGraph.Core.Model.DepGraph (DepGraph, DrvNode (..), ObjNode (..))
 import DrvGraph.Core.Model.DepGraph qualified as DepGraph
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
 import DrvGraph.Core.Model.StoreObjectPath (StoreObjectPath)
 import DrvGraph.Core.Model.StoreObjectPath qualified as StoreObjectPath
-import DrvGraph.Core.TreeRepresentation (DerivationTree (..), StoreObjectTree (..), TreeRepresentationOptions (..), depGraphToTreeRepresentation)
 
 fakeHash :: Int -> Text
 fakeHash i = Text.replicate 32 (Text.singleton (alphaNums !! i))

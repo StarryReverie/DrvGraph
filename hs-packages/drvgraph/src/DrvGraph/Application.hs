@@ -17,8 +17,8 @@ import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..), AppOpt
 import DrvGraph.Application.Execution (App, runApp)
 import DrvGraph.Application.Initialization (appInit)
 import DrvGraph.Core.Error (checkpointAppError, renderAppError, throwAppErrorText, tryAppError)
-import DrvGraph.Core.PrettyPrint (EntryLine (..), EntryLineColor (..), ToLinesOptions (..), treeToLines)
-import DrvGraph.Core.TreeRepresentation (TreeRepresentationOptions (..), depGraphToTreeRepresentation)
+import DrvGraph.Core.Export.Tree.PrettyPrint (EntryLine (..), EntryLineColor (..), ToLinesOptions (..), treeToLines)
+import DrvGraph.Core.Export.Tree.Representation (TreeRepresentationOptions (..), depGraphToTreeRepresentation)
 import DrvGraph.Core.Walk (walk)
 
 appMain :: (MonadCatch m, MonadIO m) => AppArguments -> AppOptions -> m ()
