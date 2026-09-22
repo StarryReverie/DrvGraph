@@ -4,21 +4,15 @@ module DrvGraph.Application
 
 import Control.Exception.Safe (MonadCatch)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.Maybe qualified as Maybe
-import Data.Text (Text)
-import Data.Text qualified as Text
 import Data.Text.IO qualified as TextIO
 import Optics ((^.))
-import System.Console.ANSI (ConsoleLayer (..), setSGRCode)
-import System.Console.ANSI.Codes (SGR (..))
 import System.IO (stderr)
 
 import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..), AppOptionsWithDefault)
 import DrvGraph.Application.Execution (App, runApp)
 import DrvGraph.Application.Initialization (appInit)
-import DrvGraph.Core.Error (checkpointAppError, renderAppError, throwAppErrorText, tryAppError)
-import DrvGraph.Core.Export.Tree.PrettyPrint (EntryLine (..), EntryLineColor (..), ToLinesOptions (..), treeToLines)
-import DrvGraph.Core.Export.Tree.Representation (ToTreeOptions (..), toTree)
+import DrvGraph.Core.Error (checkpointAppError, renderAppError, throwAppError, tryAppError)
+import DrvGraph.Core.Export.Tree (FlattenTreeOptions (..), ToTreeOptions (..), exportTreeText)
 import DrvGraph.Core.Walk (walk)
 
 appMain :: (MonadCatch m, MonadIO m) => AppArguments -> AppOptions -> m ()
@@ -36,40 +30,19 @@ app args optsDefault = do
         liftIO $ TextIO.hPutStrLn stderr "[DrvGraph] Traversing Nix store"
         walk storeDir drvPath outName
 
-    let treeOpts =
+    let toTreeOpts =
             ToTreeOptions
                 { includeExisted = optsDefault ^. #showExisted
                 , includeVisited = optsDefault ^. #showVisited
                 , maxDepth = optsDefault ^. #maxDepth
                 }
-    tree <- case toTree treeOpts depGraph rootObjPath of
-        Just tree -> pure tree
-        Nothing -> throwAppErrorText "no valid tree display"
-
-    let toLinesOpts =
-            ToLinesOptions
+    let flattenTreeOpts =
+            FlattenTreeOptions
                 { showFile = optsDefault ^. #showFile
                 , reversed = optsDefault ^. #reversed
                 }
-    let ls = renderEntryLine (optsDefault ^. #reversed) <$> treeToLines toLinesOpts tree
-    liftIO $ TextIO.putStrLn $ Text.unlines ls
+    case exportTreeText toTreeOpts flattenTreeOpts (depGraph, rootObjPath) of
+        Left err -> throwAppError err
+        Right res -> liftIO $ TextIO.putStrLn res
 
     pure ()
-
-renderEntryLine :: Bool -> EntryLine -> Text
-renderEntryLine reversed EntryLine{isSubtreeLastChild, content} =
-    Text.concat (renderAncestor <$> reverse (drop 1 isSubtreeLastChild))
-        <> maybe "" renderConnector (Maybe.listToMaybe isSubtreeLastChild)
-        <> Text.intercalate " " (renderChunk <$> content)
-  where
-    renderAncestor True = "   "
-    renderAncestor False = "│  "
-
-    renderConnector True = if reversed then "┌─ " else "└─ "
-    renderConnector False = "├─ "
-
-    renderChunk :: (Text, EntryLineColor) -> Text
-    renderChunk (chunk, EntryLineColor{color, intensity}) =
-        Text.pack (setSGRCode [SetColor Foreground intensity color])
-            <> chunk
-            <> Text.pack (setSGRCode [Reset])

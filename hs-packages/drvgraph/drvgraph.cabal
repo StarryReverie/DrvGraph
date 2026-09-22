@@ -27,7 +27,9 @@ library
       DrvGraph.Core.Capability.CapStoreObject
       DrvGraph.Core.Capability.CapTaskExecutor
       DrvGraph.Core.Error
-      DrvGraph.Core.Export.Tree.PrettyPrint
+      DrvGraph.Core.Export.Tree
+      DrvGraph.Core.Export.Tree.Flatten
+      DrvGraph.Core.Export.Tree.Render
       DrvGraph.Core.Export.Tree.Representation
       DrvGraph.Core.Model.DepGraph
       DrvGraph.Core.Model.Derivation
