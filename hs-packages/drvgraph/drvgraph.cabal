@@ -98,12 +98,10 @@ library
     , network-uri
     , optics
     , optparse-applicative
-    , process
     , safe-exceptions
     , stm
     , stm-containers
     , text
-    , transformers
     , unliftio
   default-language: GHC2024
 
@@ -170,12 +168,10 @@ executable drvgraph
     , network-uri
     , optics
     , optparse-applicative
-    , process
     , safe-exceptions
     , stm
     , stm-containers
     , text
-    , transformers
     , unliftio
   default-language: GHC2024
 
@@ -253,7 +249,6 @@ test-suite test
     , network-uri
     , optics
     , optparse-applicative
-    , process
     , safe-exceptions
     , stm
     , stm-containers
@@ -261,7 +256,6 @@ test-suite test
     , tasty-hedgehog
     , tasty-hunit
     , text
-    , transformers
     , unliftio
   default-language: GHC2024
   if !flag(in-nix-shell)

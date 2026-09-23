@@ -22,12 +22,10 @@ dependencies:
   - network-uri
   - optics
   - optparse-applicative
-  - process
   - safe-exceptions
   - stm
   - stm-containers
   - text
-  - transformers
   - unliftio
 
 library:

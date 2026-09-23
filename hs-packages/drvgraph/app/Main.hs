@@ -19,7 +19,7 @@ import Options.Applicative qualified as Optparse
 import System.Exit (ExitCode (..))
 import System.FilePath qualified as Path
 import System.IO (stderr)
-import System.Process qualified as Process
+import UnliftIO.Process qualified as Process
 
 import DrvGraph.Application (appMain)
 import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..))
