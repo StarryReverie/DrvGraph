@@ -6,6 +6,7 @@ name: drvgraph
 version: 0.1.0.0
 
 dependencies:
+  - aeson
   - ansi-terminal
   - async
   - base

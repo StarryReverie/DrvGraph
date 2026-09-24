@@ -22,7 +22,7 @@ import System.IO (stderr)
 import UnliftIO.Process qualified as Process
 
 import DrvGraph.Application (appMain)
-import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..))
+import DrvGraph.Application.Argument (AppArguments (..), AppOptions (..), ExportFormat (ExportJson, ExportTree))
 import DrvGraph.Core.Error (AppEither, addAppErrorContext, appError, renderAppError, rethrowAsAppError, throwAppEither, throwAppErrorText, tryAppError)
 import DrvGraph.Core.Model.DerivingPath (DerivingPath)
 import DrvGraph.Core.Model.DerivingPath qualified as DerivingPath
@@ -74,6 +74,7 @@ parseAppOptions = do
     reversed <- parseReversed
     maxDepth <- parseMaxDepth
     substituters <- parseSubstituters
+    format <- parseFormat
     pure AppOptions{..}
 
 parseShowExisted :: Parser Bool
@@ -124,6 +125,18 @@ parseSubstituters =
     parseSomeUrls raw = (traverse parseUrl . words $ raw) >>= parseNonEmpty
     parseUrl raw = maybe (Left ("invalid URL: " <> raw)) Right (Uri.parseAbsoluteURI raw)
     parseNonEmpty = maybe (Left "require at least one URL") Right . NonEmpty.nonEmpty
+
+parseFormat :: Parser (Maybe ExportFormat)
+parseFormat =
+    Optparse.optional . Optparse.option parser . fold $
+        [ Optparse.long "format"
+        , Optparse.help "The format and representation of the graph. Accepts \"tree\" or \"json\""
+        ]
+  where
+    parser = Optparse.eitherReader parseFormatString
+    parseFormatString "tree" = Right ExportTree
+    parseFormatString "json" = Right ExportJson
+    parseFormatString format = Left ("unrecognized format: " <> format)
 
 parseNix2 :: Parser Bool
 parseNix2 =

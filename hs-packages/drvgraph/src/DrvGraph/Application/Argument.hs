@@ -2,6 +2,7 @@ module DrvGraph.Application.Argument
     ( AppArguments (..)
     , AppOptions (..)
     , AppOptionsWithDefault (..)
+    , ExportFormat (..)
     ) where
 
 import Data.List.NonEmpty (NonEmpty)
@@ -24,6 +25,7 @@ data AppOptions = AppOptions
     , reversed :: Bool
     , maxDepth :: Maybe Int
     , substituters :: Maybe (NonEmpty URI)
+    , format :: Maybe ExportFormat
     }
 
 data AppOptionsWithDefault = AppOptionsWithDefault
@@ -33,7 +35,13 @@ data AppOptionsWithDefault = AppOptionsWithDefault
     , reversed :: Bool
     , maxDepth :: Maybe Int
     , substituters :: NonEmpty URI
+    , format :: ExportFormat
     }
+
+data ExportFormat
+    = ExportTree
+    | ExportJson
+    deriving (Eq, Show)
 
 makeFieldLabelsNoPrefix ''AppArguments
 makeFieldLabelsNoPrefix ''AppOptions
