@@ -27,6 +27,7 @@ library
       DrvGraph.Core.Capability.CapStoreObject
       DrvGraph.Core.Capability.CapTaskExecutor
       DrvGraph.Core.Error
+      DrvGraph.Core.Export.Json
       DrvGraph.Core.Export.Json.Representation
       DrvGraph.Core.Export.Tree
       DrvGraph.Core.Export.Tree.Flatten
@@ -83,7 +84,8 @@ library
       AllowAmbiguousTypes
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      ansi-terminal
+      aeson
+    , ansi-terminal
     , async
     , base
     , bytestring
@@ -152,7 +154,8 @@ executable drvgraph
       AllowAmbiguousTypes
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      ansi-terminal
+      aeson
+    , ansi-terminal
     , async
     , base
     , bytestring
@@ -231,7 +234,8 @@ test-suite test
       AllowAmbiguousTypes
   ghc-options: -Wall -Wcompat -Wmissing-export-lists -Widentities -Wredundant-constraints -Werror=missing-home-modules -threaded -rtsopts -with-rtsopts=-N -Wno-incomplete-uni-patterns
   build-depends:
-      ansi-terminal
+      aeson
+    , ansi-terminal
     , async
     , base
     , bytestring

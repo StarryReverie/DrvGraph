@@ -4,6 +4,8 @@ module DrvGraph.Core.Export.Json.Representation
     , toCombinedGraph
     ) where
 
+import Data.Aeson (ToJSON (toJSON), Value, (.=))
+import Data.Aeson qualified as Aeson
 import Data.Function ((&))
 import Data.Map qualified as Map
 import Data.Map.Strict (Map)
@@ -111,3 +113,42 @@ drvNodeToCombined depGraph drvPath DrvNode{inputObjPaths} =
                 )
   where
     nodeId = DerivingPath.toText drvPath
+
+instance ToJSON CombinedGraph where
+    toJSON :: CombinedGraph -> Value
+    toJSON CombinedGraph{root, nodes, edges} =
+        Aeson.object
+            [ "root" .= StoreObjectPath.toText root
+            , "nodes" .= nodes
+            , "edges" .= edges
+            ]
+
+instance ToJSON CombinedNode where
+    toJSON :: CombinedNode -> Value
+    toJSON CbNodeObjExisted{objPath} =
+        Aeson.object
+            [ "type" .= ("ObjExisted" :: Text)
+            , "objPath" .= StoreObjectPath.toText objPath
+            ]
+    toJSON CbNodeObjUnsynced{objPath, deriver} =
+        Aeson.object
+            [ "type" .= ("ObjUnsynced" :: Text)
+            , "objPath" .= StoreObjectPath.toText objPath
+            , "deriver" .= fmap DerivingPath.toText deriver
+            ]
+    toJSON CbNodeObjUnbuilt{objPath} =
+        Aeson.object
+            [ "type" .= ("ObjUnbuilt" :: Text)
+            , "objPath" .= StoreObjectPath.toText objPath
+            ]
+    toJSON CbNodeObjUnbuiltWithDrv{objPath, drvPath} =
+        Aeson.object
+            [ "type" .= ("ObjUnbuiltWithDrv" :: Text)
+            , "objPath" .= StoreObjectPath.toText objPath
+            , "drvPath" .= DerivingPath.toText drvPath
+            ]
+    toJSON CbNodeDrvUnbuilt{drvPath} =
+        Aeson.object
+            [ "type" .= ("DrvUnbuilt" :: Text)
+            , "drvPath" .= DerivingPath.toText drvPath
+            ]
