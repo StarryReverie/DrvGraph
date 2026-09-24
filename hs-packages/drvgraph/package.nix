@@ -1,5 +1,6 @@
 {
   mkDerivation,
+  aeson,
   ansi-terminal,
   async,
   base,
@@ -20,7 +21,6 @@
   network-uri,
   optics,
   optparse-applicative,
-  process,
   safe-exceptions,
   stm,
   stm-containers,
@@ -29,7 +29,6 @@
   tasty-hedgehog,
   tasty-hunit,
   text,
-  transformers,
   unliftio,
 }:
 mkDerivation {
@@ -43,6 +42,7 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
+    aeson
     ansi-terminal
     async
     base
@@ -59,16 +59,15 @@ mkDerivation {
     network-uri
     optics
     optparse-applicative
-    process
     safe-exceptions
     stm
     stm-containers
     text
-    transformers
     unliftio
   ];
   libraryToolDepends = [ hpack ];
   executableHaskellDepends = [
+    aeson
     ansi-terminal
     async
     base
@@ -85,15 +84,14 @@ mkDerivation {
     network-uri
     optics
     optparse-applicative
-    process
     safe-exceptions
     stm
     stm-containers
     text
-    transformers
     unliftio
   ];
   testHaskellDepends = [
+    aeson
     ansi-terminal
     async
     base
@@ -112,7 +110,6 @@ mkDerivation {
     network-uri
     optics
     optparse-applicative
-    process
     safe-exceptions
     stm
     stm-containers
@@ -120,7 +117,6 @@ mkDerivation {
     tasty-hedgehog
     tasty-hunit
     text
-    transformers
     unliftio
   ];
   testToolDepends = [ tasty-discover ];
