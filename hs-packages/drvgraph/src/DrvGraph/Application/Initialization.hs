@@ -22,7 +22,7 @@ import StmContainers.Map qualified as StmMap
 import UnliftIO.Concurrent qualified as Concurrent
 import UnliftIO.Directory qualified as Directory
 
-import DrvGraph.Application.Argument (AppOptions (..), AppOptionsWithDefault (..))
+import DrvGraph.Application.Argument (AppOptions (..), AppOptionsWithDefault (..), ExportFormat (ExportTree))
 import DrvGraph.Application.Execution.Environment (AppEnvironment (..))
 import DrvGraph.Core.Error (checkpointAppError, rethrowAsAppError, throwAppErrorText, throwEitherAsAppError)
 
@@ -40,6 +40,7 @@ appInit opts = do
                 , reversed = opts ^. #reversed
                 , maxDepth = opts ^. #maxDepth
                 , substituters
+                , format = Maybe.fromMaybe ExportTree (opts ^. #format)
                 }
 
     let httpManagerSettings =
