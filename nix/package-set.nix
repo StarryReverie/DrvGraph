@@ -35,22 +35,14 @@ let
           hpkgs.callCabal2nixWithOptions name src cabal2nixOpts { };
 
       extendedFullPkgs = haskellPkgs.override (attrs: {
-        overrides =
-          final: prev:
-          lib.pipe selfPackageNames [
-            (lib.lists.map (name: pair name (makePackage final name)))
-            lib.attrsets.listToAttrs
-          ];
+        overrides = final: prev: lib.attrsets.genAttrs selfPackageNames (makePackage final);
       });
 
       exportedPkgs =
         let
           exportPkgs =
             fullPkgs:
-            (lib.pipe selfPackageNames [
-              (lib.lists.map (name: pair name fullPkgs.${name}))
-              lib.attrsets.listToAttrs
-            ])
+            (lib.attrsets.genAttrs selfPackageNames (name: fullPkgs.${name}))
             // {
               override = arg: exportPkgs (fullPkgs.override arg);
             };
