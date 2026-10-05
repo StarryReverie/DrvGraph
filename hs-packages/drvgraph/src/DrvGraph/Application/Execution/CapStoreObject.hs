@@ -23,9 +23,10 @@ import System.Directory qualified as Directory
 import System.FilePath ((</>))
 import UnliftIO (MonadUnliftIO)
 import UnliftIO.Async qualified as Async
+import UnliftIO.Concurrent qualified as Concurrent
 
 import DrvGraph.Application.Execution.Environment (AppEnvironment)
-import DrvGraph.Core.Error (checkpointAppError, rethrowAsAppError, throwAppEither, throwAppErrorText, throwEitherAsAppError)
+import DrvGraph.Core.Error (catchAppError, checkpointAppError, rethrowAsAppError, throwAppEither, throwAppErrorText, throwEitherAsAppError)
 import DrvGraph.Core.Model.NarInfo (NarInfo (..))
 import DrvGraph.Core.Model.NarInfo qualified as NarInfo
 import DrvGraph.Core.Model.Nix32Hash qualified as Nix32Hash
@@ -87,23 +88,33 @@ sendRequest
     => URI -> Request -> m (Maybe NarInfo)
 sendRequest uri request = do
     httpManager <- asks (^. #httpManager)
+    withRetry 3 $ do
+        response <- checkpointAppError ("could not send request to " <> uriText) $ do
+            rethrowAsAppError @HttpException (liftIO $ Http.httpLbs request httpManager)
 
-    response <- checkpointAppError ("could not send request to " <> uriText) $ do
-        rethrowAsAppError @HttpException (liftIO $ Http.httpLbs request httpManager)
+        content <- checkpointAppError ("could not read response of " <> uriText) $ do
+            case Http.responseStatus response of
+                HttpStatus.Status 200 _ -> do
+                    let bytes = LazyBytes.toStrict $ Http.responseBody response
+                    throwEitherAsAppError $ Just <$> TextEncoding.decodeUtf8' bytes
+                HttpStatus.Status 403 _ -> pure Nothing
+                HttpStatus.Status 404 _ -> pure Nothing
+                status -> do
+                    throwAppErrorText $ "got response status code " <> Text.pack (show status)
 
-    content <- checkpointAppError ("could not read response of " <> uriText) $ do
-        case Http.responseStatus response of
-            HttpStatus.Status 200 _ -> do
-                let bytes = LazyBytes.toStrict $ Http.responseBody response
-                throwEitherAsAppError $ Just <$> TextEncoding.decodeUtf8' bytes
-            HttpStatus.Status 403 _ -> pure Nothing
-            HttpStatus.Status 404 _ -> pure Nothing
-            status -> do
-                throwAppErrorText $ "got response status code " <> Text.pack (show status)
-
-    checkpointAppError ("could not parse narinfo from " <> uriText) $ do
-        case content of
-            Just raw -> throwAppEither $ Just <$> NarInfo.parse raw
-            Nothing -> pure Nothing
+        checkpointAppError ("could not parse narinfo from " <> uriText) $ do
+            case content of
+                Just raw -> throwAppEither $ Just <$> NarInfo.parse raw
+                Nothing -> pure Nothing
   where
     uriText = Text.pack (show uri)
+
+withRetry :: (MonadCatch m, MonadIO m) => Int -> m a -> m a
+withRetry count action = do
+    go (count - 1)
+  where
+    go remaining
+        | remaining <= 0 = action
+        | otherwise = catchAppError action $ const $ do
+            Concurrent.threadDelay 5_000_000
+            go (remaining - 1)
